@@ -11,14 +11,13 @@ async function runGitHubRender() {
     const configRaw = process.env.POST_CONFIG || "{}";
     const config = JSON.parse(configRaw);
 
-    // 폴더 생성은 안전하게 절대 경로로 처리
     const outputDir = path.join(__dirname, 'output');
     if (!fs.existsSync(outputDir)) {
         fs.mkdirSync(outputDir, { recursive: true });
     }
 
-    // 💡 [핵심 해결책] Twick 내부 FFmpeg 경로 꼬임 버그를 막기 위해 '상대 경로' 사용!
-    const outputVideoPath = 'output/final_shorts.mp4';
+    // 💡 [진짜 최종 해결책] 경로 다 빼고 파일명만! (Twick이 알아서 output/ 을 붙입니다)
+    const outputVideoPath = 'final_shorts.mp4'; 
     
     const cleanContent = content.replace(/[ \t]+/g, ' ').trim();
 
@@ -52,7 +51,7 @@ async function runGitHubRender() {
             }
         );
 
-        console.log(`✅ 비디오 렌더링 완료! 경로: ${videoPath}`);
+        console.log(`✅ 비디오 렌더링 완료!`);
     } catch (error) {
         console.error(`❌ 비디오 렌더링 실패:`, error);
         process.exit(1);
