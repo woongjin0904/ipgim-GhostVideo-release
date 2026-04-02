@@ -28,7 +28,6 @@ async function runGitHubRender() {
     try {
         const videoPath = await renderTwickVideo(
             {
-                // 1. 기존 방식 유지
                 input: {
                     entry: path.join(__dirname, 'video', 'ShortsTemplate.jsx'),
                     properties: {
@@ -42,29 +41,14 @@ async function runGitHubRender() {
                     fps: FPS,
                     width: 1080,
                     height: 1920
-                },
-                // 2. 혹시 몰라 최상단 객체에도 해상도 명시 (버전별 API 스펙 차이 대응)
-                width: 1080,
-                height: 1920,
-                fps: FPS,
-                durationInFrames: totalFrames
+                }
             },
             {
                 outFile: outputVideoPath,
-                quality: "high",
-                // 3. 옵션 객체에도 해상도 명시
-                width: 1080,
-                height: 1920,
-                // 4. Puppeteer (Chromium) 브라우저 자체의 뷰포트 크기를 1080x1920으로 강제 고정
-                chromiumOptions: {
-                    defaultViewport: { width: 1080, height: 1920 },
-                    args: [
-                        '--no-sandbox', 
-                        '--disable-setuid-sandbox',
-                        '--window-size=1080,1920',  // 윈도우 창 크기 강제 지정
-                        '--disable-web-security'
-                    ]
-                }
+                quality: "high"
+                
+                // 💡 핵심: 이곳에 있던 chromiumOptions를 완전히 삭제했습니다!
+                // Twick의 순정 옵션을 그대로 살려두어 VideoEncoder가 정상 작동하도록 합니다.
             }
         );
 
