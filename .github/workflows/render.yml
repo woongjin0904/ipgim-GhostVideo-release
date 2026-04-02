@@ -1,0 +1,57 @@
+name: 🎬
+
+on:
+  workflow_dispatch:
+    inputs:
+      title:
+        description: 'Post Title'
+        required: true
+      content:
+        description: 'Post Content'
+        required: true
+      config:
+        description: 'Template Config JSON'
+        required: true
+
+jobs:
+  render-video:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥
+        uses: actions/checkout@v4
+
+      - name: 🛠️
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: 🟢
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: 📦
+        run: |
+          cd server
+          pnpm install
+
+      - name: 🚀
+        run: |
+          cd server
+          node github-render.js
+        env:
+          POST_TITLE: ${{ github.event.inputs.title }}
+          POST_CONTENT: ${{ github.event.inputs.content }}
+          POST_CONFIG: ${{ github.event.inputs.config }}
+
+      - name: 🚀
+        run: |
+          echo "Uploading to file.io..."
+          RESPONSE=$(curl -F "file=@server/output/final_shorts.mp4" https://file.io)
+          DOWNLOAD_URL=$(echo $RESPONSE | jq -r '.link')
+          echo "====================================="
+          echo "🎉 렌더링 완료! 아래 링크에서 다운로드 하세요:"
+          echo "$DOWNLOAD_URL"
+          echo "====================================="
