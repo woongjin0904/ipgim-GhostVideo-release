@@ -4,7 +4,6 @@ const path = require('path');
 async function runGitHubRender() {
     console.log("🚀 GitHub Actions: Twick 리눅스 렌더링 엔진 가동 시작!");
 
-    // 💡 핵심 해결책: 패키지 버그 우회를 위해 require 대신 동적 import 사용!
     const { renderTwickVideo } = await import('@twick/render-server');
 
     const title = process.env.POST_TITLE || "제목 없음";
@@ -29,8 +28,8 @@ async function runGitHubRender() {
     try {
         const videoPath = await renderTwickVideo(
             {
+                // 1. 기존 방식 유지
                 input: {
-                    // 💡 루트 경로 기준이므로 __dirname 대신 절대 경로 명시
                     entry: path.join(__dirname, 'video', 'ShortsTemplate.jsx'),
                     properties: {
                         postTitle: title,
@@ -43,20 +42,35 @@ async function runGitHubRender() {
                     fps: FPS,
                     width: 1080,
                     height: 1920
-                }
+                },
+                // 2. 혹시 몰라 최상단 객체에도 해상도 명시 (버전별 API 스펙 차이 대응)
+                width: 1080,
+                height: 1920,
+                fps: FPS,
+                durationInFrames: totalFrames
             },
             {
                 outFile: outputVideoPath,
                 quality: "high",
+                // 3. 옵션 객체에도 해상도 명시
+                width: 1080,
+                height: 1920,
+                // 4. Puppeteer (Chromium) 브라우저 자체의 뷰포트 크기를 1080x1920으로 강제 고정
                 chromiumOptions: {
-                    args: ['--no-sandbox', '--disable-setuid-sandbox']
+                    defaultViewport: { width: 1080, height: 1920 },
+                    args: [
+                        '--no-sandbox', 
+                        '--disable-setuid-sandbox',
+                        '--window-size=1080,1920',  // 윈도우 창 크기 강제 지정
+                        '--disable-web-security'
+                    ]
                 }
             }
         );
 
-        console.log(`✅ 완료! 경로: ${videoPath}`);
+        console.log(`✅ 비디오 렌더링 완료! 경로: ${videoPath}`);
     } catch (error) {
-        console.error(`❌ 실패:`, error);
+        console.error(`❌ 비디오 렌더링 실패:`, error);
         process.exit(1);
     }
 }
