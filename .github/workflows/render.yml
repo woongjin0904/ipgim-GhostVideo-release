@@ -1,4 +1,4 @@
-name: 🎬
+name: 🎬 Twick Video Renderer
 
 on:
   workflow_dispatch:
@@ -18,15 +18,15 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      - name: 📥
+      - name: 📥 코드 가져오기
         uses: actions/checkout@v4
 
-      - name: 🛠️
+      - name: 🛠️ pnpm 설치
         uses: pnpm/action-setup@v2
         with:
           version: 8
 
-      - name: 🟢
+      - name: 🟢 Node.js 세팅
         uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -35,17 +35,22 @@ jobs:
       - name: 📦 의존성 설치
         run: pnpm install
 
-      - name: 🛡️ 리눅스 샌드박스 제한 해제 (Chrome 크래시 방지)
-        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      # 💡 [핵심] 샌드박스 제한 해제 + 가상 모니터(Xvfb) 설치
+      - name: 🛡️ 리눅스 보안 해제 및 가상 디스플레이(Xvfb) 세팅
+        run: |
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          sudo apt-get update
+          sudo apt-get install -y xvfb
 
+      # 💡 [핵심] 가상 모니터 위에서 Node.js 실행 (해상도 1080x1920 강제 할당)
       - name: 🚀 Twick 렌더링 시작!
-        run: node github-render.js
+        run: xvfb-run --auto-servernum --server-args="-screen 0 1080x1920x24" node github-render.js
         env:
           POST_TITLE: ${{ github.event.inputs.title }}
           POST_CONTENT: ${{ github.event.inputs.content }}
           POST_CONFIG: ${{ github.event.inputs.config }}
 
-      - name: 🚀 
+      - name: 🚀 완성된 영상 외부로 쏘기 (GitHub 용량 0% 사용)
         run: |
           echo "Uploading to file.io..."
           RESPONSE=$(curl -s -F "file=@output/final_shorts.mp4" https://file.io)

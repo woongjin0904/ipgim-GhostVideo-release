@@ -28,6 +28,11 @@ async function runGitHubRender() {
     try {
         const videoPath = await renderTwickVideo(
             {
+                // 💡 [융단폭격 1] 최상단 객체
+                width: 1080,
+                height: 1920,
+                durationInFrames: totalFrames,
+                fps: FPS,
                 input: {
                     entry: path.join(__dirname, 'video', 'ShortsTemplate.jsx'),
                     properties: {
@@ -37,6 +42,7 @@ async function runGitHubRender() {
                         postUp: 940,
                         cardBgColor: config?.cardBgColor || "#ffd7d7"
                     },
+                    // 💡 [융단폭격 2] input 객체 내부
                     durationInFrames: totalFrames,
                     fps: FPS,
                     width: 1080,
@@ -45,10 +51,10 @@ async function runGitHubRender() {
             },
             {
                 outFile: outputVideoPath,
-                quality: "high"
-                
-                // 💡 핵심: 이곳에 있던 chromiumOptions를 완전히 삭제했습니다!
-                // Twick의 순정 옵션을 그대로 살려두어 VideoEncoder가 정상 작동하도록 합니다.
+                quality: "high",
+                // 💡 [융단폭격 3] 옵션 객체 내부
+                width: 1080,
+                height: 1920
             }
         );
 
