@@ -1,39 +1,5 @@
 const fs = require('fs');
 const path = require('path');
-const Module = require('module');
-
-// 💡 [궁극의 치트키] Node.js의 모듈 로더(require) 자체를 가로챕니다!
-// Twick이 내부적으로 puppeteer-core를 불러올 때, 우리가 만든 해상도 고정 패치를 몰래 주입합니다.
-const originalRequire = Module.prototype.require;
-Module.prototype.require = function(request) {
-    const exported = originalRequire.apply(this, arguments);
-    
-    // puppeteer-core 모듈이 로드되는 순간 포착!
-    if (request === 'puppeteer-core' && exported.launch && !exported.__patched) {
-        const originalLaunch = exported.launch;
-        exported.launch = async function(options) {
-            console.log('💉 [Monkey Patch] 리눅스 뷰포트 1080x1920 강제 주입 성공!');
-            const newOptions = {
-                ...options,
-                // 💡 1. 브라우저 도화지(Viewport) 크기를 무조건 숏츠 비율로 고정!
-                defaultViewport: { width: 1080, height: 1920 }, 
-                args: [
-                    ...(options?.args || []),
-                    '--no-sandbox',
-                    '--disable-setuid-sandbox',
-                    // 💡 2. 브라우저 창(Window) 크기 자체도 1080x1920으로 강제 고정!
-                    '--window-size=1080,1920', 
-                    '--disable-gpu',
-                    '--disable-dev-shm-usage',
-                    '--disable-software-rasterizer'
-                ]
-            };
-            return originalLaunch.call(this, newOptions);
-        };
-        exported.__patched = true; // 중복 패치 방지
-    }
-    return exported;
-};
 
 async function runGitHubRender() {
     console.log("🚀 GitHub Actions: Twick 리눅스 렌더링 엔진 가동 시작!");
@@ -64,7 +30,10 @@ async function runGitHubRender() {
             {
                 input: {
                     entry: path.join(__dirname, 'video', 'ShortsTemplate.jsx'),
+                    // 💡 [핵심 해결책] Twick 공식 스펙에 맞게 properties 내부에 해상도 명시!
                     properties: {
+                        width: 1080,   // 👈 여기가 0x0 에러의 진짜 원인이었습니다.
+                        height: 1920,  // 👈 
                         postTitle: title,
                         postContent: cleanContent,
                         views: "15,820",
@@ -72,9 +41,7 @@ async function runGitHubRender() {
                         cardBgColor: config?.cardBgColor || "#ffd7d7"
                     },
                     durationInFrames: totalFrames,
-                    fps: FPS,
-                    width: 1080,
-                    height: 1920
+                    fps: FPS
                 }
             },
             {
