@@ -30,28 +30,26 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'pnpm'
+          cache: 'pnpm' 
 
-      - name: 📦
-        run: |
-          cd server
-          pnpm install
+      - name: 📦 의존성 설치
+        run: pnpm install 
 
-      - name: 🚀
-        run: |
-          cd server
-          node github-render.js
+      - name: 🚀 Twick 렌더링 시작!
+        run: node github-render.js 
         env:
           POST_TITLE: ${{ github.event.inputs.title }}
           POST_CONTENT: ${{ github.event.inputs.content }}
           POST_CONFIG: ${{ github.event.inputs.config }}
 
-      - name: 🚀
+      - name: 🚀 
         run: |
           echo "Uploading to file.io..."
-          RESPONSE=$(curl -F "file=@server/output/final_shorts.mp4" https://file.io)
+          RESPONSE=$(curl -s -F "file=@output/final_shorts.mp4" https://file.io)
           DOWNLOAD_URL=$(echo $RESPONSE | jq -r '.link')
-          echo "====================================="
-          echo "🎉 렌더링 완료! 아래 링크에서 다운로드 하세요:"
-          echo "$DOWNLOAD_URL"
-          echo "====================================="
+          
+          echo ""
+          echo "======================================================"
+          echo "🎉 렌더링 완료! 아래 링크를 클릭하여 영상을 다운로드 하세요:"
+          echo "👉 $DOWNLOAD_URL"
+          echo "======================================================"
