@@ -52,12 +52,12 @@ jobs:
 
       - name: 🚀 완성된 영상 외부로 쏘기 (GitHub 용량 0% 사용)
         run: |
-          echo "Uploading to file.io..."
-          RESPONSE=$(curl -s -F "file=@output/final_shorts.mp4" https://file.io)
-          DOWNLOAD_URL=$(echo $RESPONSE | jq -r '.link')
+          echo "tmpfiles.org 서버로 영상 업로드 중..."
+          RESPONSE=$(curl -s -F "file=@output/final_shorts.mp4" https://tmpfiles.org/api/v1/upload)
+          DOWNLOAD_URL=$(echo $RESPONSE | jq -r '.data.url')
           
           echo ""
           echo "======================================================"
-          echo "🎉 렌더링 완료! 아래 링크를 클릭하여 영상을 다운로드 하세요:"
+          echo "🎉 렌더링 완벽 성공! 아래 링크를 클릭하여 영상을 다운로드 하세요:"
           echo "👉 $DOWNLOAD_URL"
           echo "======================================================"
