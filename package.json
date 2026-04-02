@@ -1,0 +1,25 @@
+{
+  "name": "ghostwriter-render-server",
+  "version": "1.0.0",
+  "description": "GhostWriter Twick Rendering Server for GitHub Actions",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "render": "node github-render.js"
+  },
+  "dependencies": {
+    "@twick/core": "^0.15.27",
+    "@twick/render-server": "^0.15.27",
+    "@twick/renderer": "^0.15.27",
+    "@twick/visualizer": "^0.15.27",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "puppeteer": "^23.11.1",
+    "express": "^4.19.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "google-auth-library": "^9.10.0",
+    "google-spreadsheet": "^4.1.2",
+    "cheerio": "^1.0.0-rc.12"
+  }
+}
