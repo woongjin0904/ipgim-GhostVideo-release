@@ -1,26 +1,5 @@
 const fs = require('fs');
 const path = require('path');
-const puppeteer = require('puppeteer-core'); // 💡 추가됨
-
-// 💡 [리눅스 몽키 패치] GitHub Actions 우분투 환경용 크롬 강제 주입
-const originalLaunch = puppeteer.launch;
-puppeteer.launch = async function(options) {
-    console.log('💉 [Monkey Patch] GitHub Actions 리눅스용 크롬 경로 강제 주입 완료!');
-    const newOptions = {
-        ...options,
-        // GitHub Actions(ubuntu-latest)에 기본 설치된 크롬/크로미움 경로
-        executablePath: '/usr/bin/google-chrome', 
-        args: [
-            ...(options?.args || []),
-            '--no-sandbox', // 리눅스 환경 필수 옵션
-            '--disable-setuid-sandbox',
-            '--disable-gpu',
-            '--disable-dev-shm-usage',
-            '--disable-web-security'
-        ]
-    };
-    return originalLaunch.call(puppeteer, newOptions);
-};
 
 async function runGitHubRender() {
     console.log("🚀 GitHub Actions: Twick 리눅스 렌더링 엔진 가동 시작!");
@@ -38,6 +17,7 @@ async function runGitHubRender() {
     }
 
     const outputVideoPath = 'final_shorts.mp4'; 
+    
     const cleanContent = content.replace(/[ \t]+/g, ' ').trim();
 
     const FPS = 30;
