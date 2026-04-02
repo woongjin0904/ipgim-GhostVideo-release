@@ -48,7 +48,7 @@ async function runGitHubRender() {
             {
                 outFile: outputVideoPath,
                 quality: "high",
-                puppeteerOptions: {
+                chromiumOptions: {
                     args: ['--no-sandbox', '--disable-setuid-sandbox']
                 }
             }

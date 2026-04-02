@@ -33,10 +33,13 @@ jobs:
           cache: 'pnpm' 
 
       - name: 📦 의존성 설치
-        run: pnpm install 
+        run: pnpm install
+
+      - name: 🛡️ 리눅스 샌드박스 제한 해제 (Chrome 크래시 방지)
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
 
       - name: 🚀 Twick 렌더링 시작!
-        run: node github-render.js 
+        run: node github-render.js
         env:
           POST_TITLE: ${{ github.event.inputs.title }}
           POST_CONTENT: ${{ github.event.inputs.content }}
