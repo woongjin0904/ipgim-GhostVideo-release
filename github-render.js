@@ -11,12 +11,15 @@ async function runGitHubRender() {
     const configRaw = process.env.POST_CONFIG || "{}";
     const config = JSON.parse(configRaw);
 
+    // 폴더 생성은 안전하게 절대 경로로 처리
     const outputDir = path.join(__dirname, 'output');
     if (!fs.existsSync(outputDir)) {
         fs.mkdirSync(outputDir, { recursive: true });
     }
 
-    const outputVideoPath = path.join(outputDir, 'final_shorts.mp4');
+    // 💡 [핵심 해결책] Twick 내부 FFmpeg 경로 꼬임 버그를 막기 위해 '상대 경로' 사용!
+    const outputVideoPath = 'output/final_shorts.mp4';
+    
     const cleanContent = content.replace(/[ \t]+/g, ' ').trim();
 
     const FPS = 30;
@@ -30,10 +33,9 @@ async function runGitHubRender() {
             {
                 input: {
                     entry: path.join(__dirname, 'video', 'ShortsTemplate.jsx'),
-                    // 💡 [핵심 해결책] Twick 공식 스펙에 맞게 properties 내부에 해상도 명시!
                     properties: {
-                        width: 1080,   // 👈 여기가 0x0 에러의 진짜 원인이었습니다.
-                        height: 1920,  // 👈 
+                        width: 1080,
+                        height: 1920,
                         postTitle: title,
                         postContent: cleanContent,
                         views: "15,820",
