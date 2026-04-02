@@ -44,6 +44,11 @@ jobs:
 
       - name: Install Chrome for Puppeteer
         run: npx puppeteer browsers install chrome
+        
+      - name: Fix FFmpeg and FFprobe Permissions
+        run: |
+          find node_modules -name "ffprobe" -type f -exec chmod +x {} \;
+          find node_modules -name "ffmpeg" -type f -exec chmod +x {} \;
 
       - name: Run Twick Render
         run: xvfb-run --auto-servernum --server-args="-screen 0 1080x1920x24" node github-render.js
