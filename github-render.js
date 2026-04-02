@@ -1,8 +1,11 @@
 const fs = require('fs');
 const path = require('path');
-const { renderTwickVideo } = require('@twick/render-server');
 
 async function runGitHubRender() {
+    console.log("🚀 GitHub Actions: Twick 리눅스 렌더링 엔진 가동 시작!");
+
+    // 💡 핵심 해결책: 패키지 버그 우회를 위해 require 대신 동적 import 사용!
+    const { renderTwickVideo } = await import('@twick/render-server');
 
     const title = process.env.POST_TITLE || "제목 없음";
     const content = process.env.POST_CONTENT || "내용이 없습니다.";
@@ -27,6 +30,7 @@ async function runGitHubRender() {
         const videoPath = await renderTwickVideo(
             {
                 input: {
+                    // 💡 루트 경로 기준이므로 __dirname 대신 절대 경로 명시
                     entry: path.join(__dirname, 'video', 'ShortsTemplate.jsx'),
                     properties: {
                         postTitle: title,
