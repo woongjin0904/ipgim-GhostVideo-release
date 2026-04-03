@@ -83,7 +83,7 @@ async function runGitHubRender() {
             }
 
         }, { 
-            outFile: 'output/final_shorts.mp4', 
+            outFile: 'final_shorts.mp4', 
             quality: "high"
         });
 
