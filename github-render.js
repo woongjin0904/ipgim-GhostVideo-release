@@ -1,3 +1,4 @@
+// github-render.js
 const fs = require('fs');
 const path = require('path');
 
@@ -9,6 +10,8 @@ puppeteer.launch = async function(options) {
     const safeArgs = (options?.args || []).filter(arg => !arg.includes('--headless'));
     const newOptions = {
         ...options,
+        // 🔥 [핵심 복구] H.264 코덱이 포함된 정식 크롬을 강제 지정 (0바이트 버그 차단)
+        executablePath: '/usr/bin/google-chrome',
         headless: false, 
         defaultViewport: null, 
         args: [ ...safeArgs, '--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--window-size=1080,1920', '--autoplay-policy=no-user-gesture-required' ]
@@ -26,7 +29,6 @@ async function runGitHubRender() {
     const config = JSON.parse(process.env.POST_CONFIG || "{}");
     const templateName = process.env.TEMPLATE_NAME || "PremiumStoryShortsTemplate";
     
-    // 🔥 [핵심 2] 전달받은 Base64 문자열을 가져옵니다.
     const encodedTemplateCode = process.env.TEMPLATE_CODE; 
 
     if (!encodedTemplateCode) {
@@ -34,11 +36,11 @@ async function runGitHubRender() {
         process.exit(1);
     }
 
-    // 🔥 [핵심 3] Base64 코드를 원래의 React 코드로 복호화하여 파일을 생성합니다. (주석/줄바꿈 완벽 보존)
+    // 🔥 [핵심 복구] 전달받은 Base64 문자열을 원본 React 코드로 복호화
     const templateCode = Buffer.from(encodedTemplateCode, 'base64').toString('utf8');
     const entryPath = path.join(__dirname, `${templateName}.jsx`);
     fs.writeFileSync(entryPath, templateCode, 'utf8');
-    console.log(`✅ 프론트엔드 설정 동기화 완료! 생성된 템플릿: ${entryPath}`);
+    console.log(`✅ 템플릿 파일 정상 복호화 및 생성 완료: ${entryPath}`);
 
     const outputDir = path.join(__dirname, 'output');
     [outputDir, path.join(outputDir, __dirname), path.join(outputDir, __dirname, 'output')].forEach(dir => {
@@ -64,7 +66,7 @@ async function runGitHubRender() {
             }
         }, { outFile: tempVideoName, quality: "high" });
 
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        await new Promise(resolve => setTimeout(resolve, 3000));
         const finalDest = path.join(__dirname, 'output', 'final_shorts.mp4');
         const possiblePaths = [path.join(__dirname, tempVideoName), path.join(outputDir, tempVideoName)];
 
@@ -75,7 +77,7 @@ async function runGitHubRender() {
         } else {
             throw new Error("렌더링 결과 파일을 찾을 수 없습니다.");
         }
-    } catch (error) {
+    } catch (error) { 
         console.error(`❌ 비디오 렌더링 실패:`, error);
         process.exit(1);
     }
