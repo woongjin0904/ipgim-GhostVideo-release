@@ -24,6 +24,7 @@ puppeteer.launch = async function(options) {
     };
     return originalLaunch.call(puppeteer, newOptions);
 };
+
 async function runGitHubRender() {
     console.log("🚀 GitHub Actions: Twick 리눅스 렌더링 엔진 가동 시작!");
 
@@ -35,7 +36,7 @@ async function runGitHubRender() {
     const configRaw = process.env.POST_CONFIG || "{}";
     const config = JSON.parse(configRaw);
 
-    const outputVideoPath = 'output/final_shorts.mp4'; 
+    const outputVideoPath = path.join(__dirname, 'final_shorts.mp4'); 
     
     const cleanContent = content.replace(/[ \t]+/g, ' ').trim();
 
