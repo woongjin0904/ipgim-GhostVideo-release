@@ -83,8 +83,8 @@ async function runGitHubRender() {
             }
 
         }, { 
-            outFile: path.join(outputDir, 'final_shorts.mp4'), 
-            quality: "high" 
+            outFile: 'output/final_shorts.mp4', 
+            quality: "high"
         });
 
         console.log(`📂 렌더링 완료! 결과물 위치: ${path.join(outputDir, 'final_shorts.mp4')}`);
