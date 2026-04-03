@@ -24,7 +24,6 @@ puppeteer.launch = async function(options) {
     };
     return originalLaunch.call(puppeteer, newOptions);
 };
-
 async function runGitHubRender() {
     console.log("🚀 GitHub Actions: Twick 리눅스 렌더링 엔진 가동 시작!");
 
@@ -32,10 +31,11 @@ async function runGitHubRender() {
 
     const title = process.env.POST_TITLE || "제목 없음";
     const content = process.env.POST_CONTENT || "내용이 없습니다.";
+    const templateName = process.env.TEMPLATE_NAME || "PremiumStoryShortsTemplate";
     const configRaw = process.env.POST_CONFIG || "{}";
     const config = JSON.parse(configRaw);
 
-    const outputVideoPath = 'final_shorts.mp4'; 
+    const outputVideoPath = 'output/final_shorts.mp4'; 
     
     const cleanContent = content.replace(/[ \t]+/g, ' ').trim();
 
@@ -49,7 +49,7 @@ async function runGitHubRender() {
         const videoPath = await renderTwickVideo(
             {
                 input: {
-                    entry: path.join(__dirname, 'video', 'ShortsTemplate.jsx'),
+                    entry: path.join(__dirname, 'video', `${templateName}.jsx`),
                     properties: {
                         width: 1080,
                         height: 1920,
@@ -57,7 +57,8 @@ async function runGitHubRender() {
                         postContent: cleanContent,
                         views: "15,820",
                         postUp: 940,
-                        cardBgColor: config?.cardBgColor || "#ffd7d7"
+                        cardBgColor: config?.cardBgColor || "#ffd7d7",
+                        config: config
                     },
                     durationInFrames: totalFrames,
                     fps: FPS

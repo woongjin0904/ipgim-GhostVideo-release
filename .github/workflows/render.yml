@@ -12,6 +12,9 @@ on:
       config:
         description: 'Template Config JSON'
         required: true
+      templateName:
+        description: 'Selected Template Name'
+        required: true
 
 jobs:
   render-video:
@@ -55,11 +58,12 @@ jobs:
           POST_TITLE: ${{ github.event.inputs.title }}
           POST_CONTENT: ${{ github.event.inputs.content }}
           POST_CONFIG: ${{ github.event.inputs.config }}
+          TEMPLATE_NAME: ${{ github.event.inputs.templateName }}
 
       - name: 🚀 완성된 영상 외부로 쏘기
         run: |
           echo "tmpfiles.org 서버로 영상 업로드 중..."
-          RESPONSE=$(curl -s -F "file=@final_shorts.mp4" https://tmpfiles.org/api/v1/upload)
+          RESPONSE=$(curl -s -F "file=@output/final_shorts.mp4" https://tmpfiles.org/api/v1/upload)
           DOWNLOAD_URL=$(echo $RESPONSE | jq -r '.data.url')
           
           echo ""
@@ -72,4 +76,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: rendered-video
-          path: final_shorts.mp4
+          path: output/final_shorts.mp4
