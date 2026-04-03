@@ -13,17 +13,14 @@ const originalLaunch = puppeteer.launch;
 puppeteer.launch = async function(options) {
     const newOptions = {
         ...options,
-        // 🔥 [핵심 추가] 모니터가 없는 리눅스 서버에서 화면이 0x0으로 찌그러지는 현상 완벽 방지
-        defaultViewport: { width: 1080, height: 1920, deviceScaleFactor: 1 },
         args: [
             ...(options?.args || []),
             '--no-sandbox',
             '--disable-setuid-sandbox',
-            '--disable-gpu',
-            '--disable-software-rasterizer',
             '--disable-dev-shm-usage',
             '--disable-web-security',
-            '--window-size=1080,1920' // 🔥 브라우저 창 크기도 쇼츠 비율로 강제 고정
+            '--window-size=1080,1920' // 🔥 화면을 강제로 쇼츠 비율로 쫙 폅니다
+            // 🚫 주의: '--disable-gpu', '--disable-software-rasterizer'는 리눅스 서버를 죽이므로 절대 넣지 마세요!
         ]
     };
     return originalLaunch.call(puppeteer, newOptions);
@@ -40,7 +37,7 @@ async function runGitHubRender() {
     const configRaw = process.env.POST_CONFIG || "{}";
     const config = JSON.parse(configRaw);
 
-    // [유지] Twick 엔진의 경로 중복 결합 버그 우회용 폴더 생성
+    // [유지] 엔진 경로 꼬임 버그 방지용 기형적 폴더 선행 생성
     const outputDir = path.join(__dirname, 'output');
     const buggyDir1 = path.join(outputDir, __dirname); 
     const buggyDir2 = path.join(outputDir, __dirname, 'output');
@@ -75,8 +72,8 @@ async function runGitHubRender() {
                     },
                     durationInFrames: totalFrames,
                     fps: FPS,
-                    width: 1080,
-                    height: 1920
+                    width: 1080,   // ✅ 정상적인 해상도 위치
+                    height: 1920   // ✅
                 }
             },
             {
@@ -87,7 +84,7 @@ async function runGitHubRender() {
 
         console.log(`✅ 1차 비디오 렌더링(엔진 통과) 성공!`);
 
-        // [유지] 저장된 영상을 찾아 정상 위치로 구출
+        // [유지] 저장된 파일을 찾아서 정상 위치(output/final_shorts.mp4)로 구출
         const finalDest = path.join(__dirname, 'output', 'final_shorts.mp4');
         const possiblePaths = [
             path.join(__dirname, tempVideoName),
