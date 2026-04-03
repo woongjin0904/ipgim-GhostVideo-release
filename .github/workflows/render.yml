@@ -57,7 +57,7 @@ jobs:
 
       - name: Run Twick Render
         # 💡 Xvfb 서버 해상도를 720x1280으로 하향 조정하여 리소스 최적화
-        run: xvfb-run --auto-servernum --server-args="-screen 0 720x1280x24" node github-render.js
+        run: xvfb-run --auto-servernum --server-args="-screen 0 720x1280x24 -ac" node github-render.js
         env:
           DEBUG: 'puppeteer:*'
           REMOTION_PUPPETEER_LOG_LEVEL: 'verbose'
