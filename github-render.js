@@ -1,69 +1,89 @@
-// github-render.js
 const fs = require('fs');
 const path = require('path');
+
+let puppeteer;
+try { puppeteer = require('puppeteer-core'); } catch(e) { puppeteer = require('puppeteer'); }
+
+// 💡 [원상 복구] 회원님이 성공하셨던 심플한 퍼피티어 패치로 돌아갑니다.
+const originalLaunch = puppeteer.launch;
+puppeteer.launch = async function(options) {
+    const safeArgs = (options?.args || []).filter(arg => !arg.includes('--headless'));
+    return originalLaunch.call(puppeteer, {
+        ...options,
+        headless: "new", // 원래 성공했던 세팅
+        defaultViewport: { width: 1080, height: 1920 },
+        args: [
+            ...safeArgs,
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--window-size=1080,1920'
+        ]
+    });
+};
 
 async function runGitHubRender() {
     console.log("🚀 GitHub Actions: Twick 즉석 조립 렌더링 엔진 가동 시작!");
 
-    const { renderTwickVideo } = await import('@twick/render-server');
-
-    const title = process.env.POST_TITLE || "제목 없음";
-    const content = process.env.POST_CONTENT || "내용이 없습니다.";
-    const config = JSON.parse(process.env.POST_CONFIG || "{}");
-    const templateName = process.env.TEMPLATE_NAME || "PremiumStoryShortsTemplate";
-    
     const encodedTemplateCode = process.env.TEMPLATE_CODE; 
+    const templateName = process.env.TEMPLATE_NAME || "StoryShorts";
 
     if (!encodedTemplateCode) {
-        console.error("❌ 치명적 오류: 백엔드로부터 템플릿 코드를 전달받지 못했습니다.");
+        console.error("❌ 템플릿 코드 누락");
         process.exit(1);
     }
 
-    // Base64 복호화 후 템플릿 생성
     const templateCode = Buffer.from(encodedTemplateCode, 'base64').toString('utf8');
+    
+    // 원래 위치에 템플릿 파일 생성
     const entryPath = path.join(__dirname, `${templateName}.jsx`);
     fs.writeFileSync(entryPath, templateCode, 'utf8');
     console.log(`✅ 템플릿 파일 정상 복호화 및 생성 완료: ${entryPath}`);
 
-    const outputDir = path.join(__dirname, 'output');
-    if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
+    const { renderTwickVideo } = await import('@twick/render-server');
+    const title = process.env.POST_TITLE || "제목 없음";
+    const content = process.env.POST_CONTENT || "내용 없음";
+    const config = JSON.parse(process.env.POST_CONFIG || "{}");
 
-    const tempVideoName = 'final_shorts.mp4';
-    const cleanContent = content.replace(/[ \t]+/g, ' ').trim();
+    // 💡 [0:00 버그 픽스 1] 내용이 비어있으면 기본값 보장
+    const cleanContent = content.replace(/[ \t]+/g, ' ').trim() || "내용이 없습니다.";
+    
     const FPS = 30;
     const estimatedSeconds = Math.max(cleanContent.length / 15, 5) + 2; 
-    const totalFrames = Math.ceil(estimatedSeconds * FPS);
+    
+    // 💡 [0:00 버그 픽스 2] 프레임 수가 소수점이 되면 인코더가 0프레임으로 인식하므로 강제 정수화(Floor)
+    const totalFrames = Math.floor(estimatedSeconds * FPS); 
+
+    console.log(`🎬 렌더링 준비: ${totalFrames}프레임 (${estimatedSeconds}초)`);
 
     try {
+        const outputDir = path.join(__dirname, 'output');
+        if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
+        
         await renderTwickVideo({
             input: {
-                entry: entryPath,
+                entry: entryPath, 
                 properties: {
-                    postTitle: title, postContent: cleanContent, views: "15,820", postUp: 940,
-                    cardBgColor: config?.cardBgColor || "#1a1a24", config: config
+                    postTitle: title, 
+                    postContent: cleanContent, 
+                    cardBgColor: config?.cardBgColor || "#1a1a24"
                 },
-                // 엔진이 정확히 인식하는 정위치
                 durationInFrames: totalFrames, 
                 fps: FPS, 
                 width: 1080, 
                 height: 1920
             }
-        }, { outFile: tempVideoName, quality: "high" });
+        }, { 
+            outFile: path.join(outputDir, 'final_shorts.mp4'), 
+            quality: "high" 
+        });
 
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        const finalDest = path.join(__dirname, 'output', 'final_shorts.mp4');
-        const possiblePaths = [path.join(__dirname, tempVideoName), path.join(outputDir, tempVideoName)];
-
-        let foundPath = possiblePaths.find(p => fs.existsSync(p));
-        if (foundPath) {
-            fs.renameSync(foundPath, finalDest);
-            console.log(`📂 최종 파일 구출 완료! 크기: ${fs.statSync(finalDest).size} bytes`);
-        } else {
-            throw new Error("렌더링 결과 파일을 찾을 수 없습니다.");
-        }
+        console.log(`✅ 비디오 렌더링 완료!`);
+        
     } catch (error) { 
         console.error(`❌ 비디오 렌더링 실패:`, error);
         process.exit(1);
     }
 }
+
 runGitHubRender();
