@@ -5,22 +5,37 @@ const path = require('path');
 let puppeteer;
 try { puppeteer = require('puppeteer-core'); } catch(e) { puppeteer = require('puppeteer'); }
 
-// 💡 [핵심 해결] Xvfb 환경에 맞춘 완전한 해상도 고정 패치
+// 💡 [핵심 패치 1] 브라우저 콘솔 하이재킹 (내부 에러를 밖으로 끌어냄)
 const originalLaunch = puppeteer.launch;
 puppeteer.launch = async function(options) {
-    return originalLaunch.call(puppeteer, {
+    const browser = await originalLaunch.call(puppeteer, {
         ...options,
-        headless: false, // Xvfb(가상 디스플레이)를 쓰므로 false로 두어야 0x0 버그가 안 납니다!
+        headless: "new", // GitHub Actions에서는 new 모드가 가장 안정적입니다.
         defaultViewport: { width: 1080, height: 1920 },
         args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
             '--disable-dev-shm-usage',
-            '--disable-gpu',
-            '--window-size=1080,1920',
-            '--display=:99' // Xvfb 디스플레이 포트 강제 할당
+            '--disable-web-security',
+            '--window-size=1080,1920'
         ]
     });
+
+    // 헤드리스 브라우저 안에서 일어나는 모든 에러를 터미널로 가져옵니다.
+    browser.on('targetcreated', async (target) => {
+        if (target.type() === 'page') {
+            const page = await target.page();
+            if (page) {
+                page.on('console', msg => {
+                    if (msg.type() === 'error') console.error('🖥️ [Browser Error]:', msg.text());
+                    else console.log('🖥️ [Browser Log]:', msg.text());
+                });
+                page.on('pageerror', error => console.error('🚨 [React/DOM Crash]:', error.message));
+            }
+        }
+    });
+
+    return browser;
 };
 
 async function runGitHubRender() {
@@ -34,16 +49,41 @@ async function runGitHubRender() {
         process.exit(1);
     }
 
-    // Base64 디코딩
     const templateCode = Buffer.from(encodedTemplateCode, 'base64').toString('utf8');
     
-    // 파일 생성 (번들러가 절대 경로로 확실히 잡을 수 있도록 src 폴더 생성 권장)
     const srcDir = path.join(__dirname, 'src');
-    if (!fs.existsSync(srcDir)) fs.mkdirSync(srcDir);
+    if (!fs.existsSync(srcDir)) fs.mkdirSync(srcDir, { recursive: true });
     
-    const entryPath = path.join(srcDir, `${templateName}.jsx`);
-    fs.writeFileSync(entryPath, templateCode, 'utf8');
-    console.log(`✅ 동적 템플릿 생성 완료: ${entryPath}`);
+    // 1. 유저가 보낸 원본 템플릿 파일 생성
+    const templatePath = path.join(srcDir, `${templateName}.jsx`);
+    fs.writeFileSync(templatePath, templateCode, 'utf8');
+
+    // 💡 [핵심 패치 2] 절대 0x0이 되지 않는 강제 래퍼(Wrapper) 생성
+    // 프론트엔드 코드가 깨지더라도 부모 요소가 1080x1920을 유지하게 만듭니다.
+    const wrapperCode = `
+import React from 'react';
+import Template from './${templateName}';
+
+export default function ForceSizeWrapper(props) {
+    return (
+        <div style={{ 
+            width: '1080px', 
+            height: '1920px', 
+            position: 'absolute', 
+            top: 0, 
+            left: 0, 
+            overflow: 'hidden', 
+            backgroundColor: '#000' 
+        }}>
+            <Template {...props} />
+        </div>
+    );
+}
+    `;
+    const entryPath = path.join(srcDir, 'EntryWrapper.jsx');
+    fs.writeFileSync(entryPath, wrapperCode, 'utf8');
+    
+    console.log(`✅ 동적 템플릿 및 안전 래퍼 생성 완료: ${entryPath}`);
 
     const { renderTwickVideo } = await import('@twick/render-server');
     const title = process.env.POST_TITLE || "제목 없음";
@@ -61,7 +101,7 @@ async function runGitHubRender() {
     try {
         await renderTwickVideo({
             input: {
-                entry: entryPath,
+                entry: entryPath, // 원본이 아닌 강제 래퍼를 엔트리로 삽입
                 properties: {
                     postTitle: title, 
                     postContent: cleanContent, 
