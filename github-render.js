@@ -45,9 +45,7 @@ async function runGitHubRender() {
     const outputDir = path.join(__dirname, 'output');
     if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
 
-    // 🔥 처음부터 파일이 저장될 최종 목적지 경로를 지정합니다.
-    const finalDest = path.join(outputDir, 'final_shorts.mp4'); 
-
+    const tempVideoName = 'final_shorts.mp4';
     const cleanContent = content.replace(/[ \t]+/g, ' ').trim();
     const FPS = 30;
     const estimatedSeconds = Math.max(cleanContent.length / 15, 5) + 2; 
@@ -75,13 +73,24 @@ async function runGitHubRender() {
                 height: 1920
             }
         }, { 
-            // 🔥 파일 옮기는 삽질 없이, 렌더링 결과를 바로 output 폴더에 꽂아 넣습니다.
-            outFile: finalDest, 
+            // 🔥 [이중 경로 버그 픽스] 절대경로를 주지 않고 순수한 파일 이름만 넘깁니다.
+            outFile: tempVideoName, 
             quality: "high" 
         });
 
-        // 렌더링 완료 후 파일 크기 확인 (여기서 크기가 찍히면 10000% 성공입니다)
-        console.log(`📂 최종 파일 렌더링 완료! 파일 크기: ${fs.statSync(finalDest).size} bytes`);
+        // 엔진이 output/final_shorts.mp4 에 넣었는지, 최상단 루트에 넣었는지 스마트하게 찾습니다.
+        const expectedPath = path.join(outputDir, tempVideoName);
+        const rootPath = path.join(__dirname, tempVideoName);
+
+        if (fs.existsSync(expectedPath)) {
+            console.log(`📂 최종 파일 렌더링 완료! 크기: ${fs.statSync(expectedPath).size} bytes`);
+        } else if (fs.existsSync(rootPath)) {
+            // 루트에 생겼을 경우에만 output 폴더로 예쁘게 옮겨줍니다.
+            fs.renameSync(rootPath, expectedPath);
+            console.log(`📂 최종 파일 이동 및 저장 완료! 크기: ${fs.statSync(expectedPath).size} bytes`);
+        } else {
+            throw new Error("어디에도 렌더링된 파일이 없습니다.");
+        }
     } catch (error) {
         console.error(`❌ 비디오 렌더링 실패:`, error);
         process.exit(1);
