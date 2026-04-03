@@ -1,54 +1,32 @@
 const fs = require('fs');
 const path = require('path');
 
-// Puppeteer 로드
 let puppeteer;
 try { puppeteer = require('puppeteer-core'); } catch(e) { puppeteer = require('puppeteer'); }
 
+// 🔥 [핵심 2] 깡통 Chromium 대신 MP4 코덱이 있는 '진짜 크롬'을 사용하도록 몽키패치
 const originalLaunch = puppeteer.launch;
 puppeteer.launch = async function(options) {
-    // 기존 설정과 충돌하지 않도록 필터링
-    const baseArgs = (options.args || []).filter(arg => 
-        !arg.includes('--headless') && !arg.includes('--disable-gpu')
-    );
-
-    const browser = await originalLaunch.call(puppeteer, {
+    return originalLaunch.call(puppeteer, {
         ...options,
-        headless: "new",
+        executablePath: '/usr/bin/google-chrome', // 리눅스에 설치된 실제 Chrome 경로
+        headless: "new", 
         defaultViewport: { width: 1080, height: 1920 },
         args: [
-            ...baseArgs,
+            ...(options.args || []),
             '--no-sandbox',
             '--disable-setuid-sandbox',
             '--disable-dev-shm-usage',
             '--disable-gpu',
-            '--use-gl=angle',             // 🔥 [핵심] Linux CI에서 WebCodecs를 구동하기 위한 필수 플래그
-            '--use-angle=swiftshader',    // 🔥 [핵심] 하드웨어 가속 없이 소프트웨어 렌더링 강제
             '--window-size=1080,1920'
         ]
     });
-
-    // 만약의 사태를 대비한 내부 로그 추적 유지
-    browser.on('targetcreated', async (target) => {
-        if (target.type() === 'page') {
-            const page = await target.page();
-            if (page) {
-                page.on('console', msg => {
-                    if (msg.type() === 'error') console.error('🖥️ [Browser Error]:', msg.text());
-                });
-                page.on('pageerror', error => console.error('🚨 [React Crash]:', error.message));
-            }
-        }
-    });
-
-    return browser;
 };
 
 async function runGitHubRender() {
     console.log("🚀 GitHub Actions: 동적 코드 수신 및 조립 시작!");
 
     const encodedTemplateCode = process.env.TEMPLATE_CODE; 
-    // 기본값을 기존 템플릿 이름과 동일하게 맞춤
     const templateName = process.env.TEMPLATE_NAME || "PremiumStoryShortsTemplate";
 
     if (!encodedTemplateCode) {
@@ -61,7 +39,7 @@ async function runGitHubRender() {
     const srcDir = path.join(__dirname, 'src');
     if (!fs.existsSync(srcDir)) fs.mkdirSync(srcDir, { recursive: true });
     
-    // 래퍼를 벗기고 사용자의 원본 코드를 그대로 진입점(Entry)으로 사용합니다.
+    // 유저의 원본 템플릿을 그대로 살립니다.
     const entryPath = path.join(srcDir, `${templateName}.jsx`);
     fs.writeFileSync(entryPath, templateCode, 'utf8');
     

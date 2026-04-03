@@ -47,11 +47,13 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y xvfb
 
-      - name: 🌐 Chrome 설치
-        run: npx puppeteer browsers install chrome
+      # 🔥 [핵심 1] 진짜 Google Chrome 설치 (MP4, H264 코덱 포함)
+      - name: 🌐 진짜 Google Chrome 설치
+        run: |
+          wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+          sudo apt-get install -y ./google-chrome-stable_current_amd64.deb
 
       - name: 🎬 Run Render Engine (Xvfb)
-        # 디스플레이 번호를 :99로 고정하여 Puppeteer와 매칭시킵니다.
         run: xvfb-run --server-num=99 --server-args="-screen 0 1080x1920x24" node github-render.js
         env:
           POST_TITLE: ${{ github.event.inputs.title }}
