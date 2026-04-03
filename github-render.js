@@ -11,18 +11,19 @@ try {
 
 const originalLaunch = puppeteer.launch;
 puppeteer.launch = async function(options) {
+    // 기존에 Twick이 넘겨준 옵션에서 headless 옵션을 찾아 강제로 지워버립니다.
+    const safeArgs = (options?.args || []).filter(arg => !arg.includes('--headless'));
+    
     const newOptions = {
         ...options,
-        // 🔥 핵심 1: H.264 코덱이 포함된 깃허브 서버의 '정식 상용 구글 크롬'을 강제 지정합니다.
-        executablePath: '/usr/bin/google-chrome',
+        // 🔥 핵심 1: 백그라운드 모드를 강제 해제하여 Xvfb 가상 모니터에 진짜 화면을 띄웁니다. (애니메이션 멈춤, 0초 버그 완벽 해결)
+        headless: false, 
+        defaultViewport: null, // 창 크기를 100% 활용하기 위해 뷰포트 제한 해제
         args: [
-            ...(options?.args || []),
+            ...safeArgs,
             '--no-sandbox',
             '--disable-setuid-sandbox',
             '--disable-dev-shm-usage',
-            '--disable-web-security',
-            // 🔥 핵심 2: GPU가 없는 리눅스에서 화면과 픽셀을 완벽하게 렌더링하는 소프트웨어 가속기
-            '--use-gl=swiftshader',
             '--window-size=1080,1920',
             '--autoplay-policy=no-user-gesture-required'
         ]
@@ -41,6 +42,7 @@ async function runGitHubRender() {
     const configRaw = process.env.POST_CONFIG || "{}";
     const config = JSON.parse(configRaw);
 
+    // [유지] FFmpeg 경로 꼬임 버그 방지용
     const outputDir = path.join(__dirname, 'output');
     const buggyDir1 = path.join(outputDir, __dirname); 
     const buggyDir2 = path.join(outputDir, __dirname, 'output');
@@ -89,10 +91,10 @@ async function runGitHubRender() {
             }
         );
 
-        console.log(`✅ 비디오 렌더링 엔진 통과! FFmpeg 스트림 안정화 대기 중...`);
+        console.log(`✅ 비디오 렌더링 완료! FFmpeg 파일 쓰기 대기 중...`);
         
-        // 🔥 핵심 3: 비동기 버그 회피. FFmpeg가 MP4 파일을 디스크에 완전히 기록할 수 있도록 3초 대기합니다.
-        await new Promise(resolve => setTimeout(resolve, 3000));
+        // 🔥 핵심 2: 비디오 파일이 디스크에 완벽히 기록될 수 있도록 2초간 안전하게 대기
+        await new Promise(resolve => setTimeout(resolve, 2000));
 
         const finalDest = path.join(__dirname, 'output', 'final_shorts.mp4');
         const possiblePaths = [
@@ -114,7 +116,7 @@ async function runGitHubRender() {
             if (foundPath !== finalDest) {
                 fs.renameSync(foundPath, finalDest);
             }
-            console.log(`📂 최종 파일 구출 완료! 크기 확인: ${fs.statSync(finalDest).size} bytes. YAML 업로드 준비 끝: ${finalDest}`);
+            console.log(`📂 최종 파일 구출 완료! YAML 업로드 준비 끝: ${finalDest}`);
         } else {
             throw new Error("렌더링은 에러 없이 끝났으나 결과 파일을 찾을 수 없습니다.");
         }
