@@ -40,7 +40,7 @@ async function runGitHubRender() {
         fs.mkdirSync(outputDir, { recursive: true });
     }
 
-    const outputVideoPath = path.join(outputDir, 'final_shorts.mp4'); 
+    const outputVideoPath = 'output/final_shorts.mp4'; 
     
     const cleanContent = content.replace(/[ \t]+/g, ' ').trim();
 
