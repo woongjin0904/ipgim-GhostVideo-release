@@ -4,7 +4,6 @@ const path = require('path');
 let puppeteer;
 try { puppeteer = require('puppeteer-core'); } catch(e) { puppeteer = require('puppeteer'); }
 
-// 💡 7.8KB를 추출해 냈던 가장 안정적인 세팅 유지
 const originalLaunch = puppeteer.launch;
 puppeteer.launch = async function(options) {
     const safeArgs = (options?.args || []).filter(arg => !arg.includes('--headless'));
@@ -64,10 +63,8 @@ async function runGitHubRender() {
                     views: "15,820", 
                     postUp: 940,
                     cardBgColor: config?.cardBgColor || "#1a1a24",
-                    // 필수 파라미터가 누락되지 않도록 모두 주입
                     width: 1080, height: 1920, durationInFrames: totalFrames, fps: FPS
                 },
-                // 엔진이 0프레임으로 튕기지 않도록 성공했던 7KB 세팅의 파라미터를 그대로 복원
                 durationInFrames: totalFrames, 
                 duration: estimatedSeconds, 
                 frameCount: totalFrames, 
@@ -76,11 +73,16 @@ async function runGitHubRender() {
                 height: 1920
             }
         }, { 
-            outFile: path.join(outputDir, tempVideoName), 
+            // 🔥 [이중 경로 버그 픽스] 절대 경로 대신 순수 파일명만 넘깁니다.
+            outFile: tempVideoName, 
             quality: "high" 
         });
 
-        console.log(`📂 최종 파일 렌더링 완료!`);
+        // 🔥 렌더링이 무사히 끝난 뒤, 완성된 파일을 안전하게 output 폴더로 직접 옮깁니다.
+        const finalDest = path.join(outputDir, tempVideoName);
+        fs.renameSync(path.join(__dirname, tempVideoName), finalDest);
+
+        console.log(`📂 최종 파일 렌더링 완료! 크기: ${fs.statSync(finalDest).size} bytes`);
     } catch (error) {
         console.error(`❌ 비디오 렌더링 실패:`, error);
         process.exit(1);
