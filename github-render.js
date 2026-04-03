@@ -2,27 +2,6 @@
 const fs = require('fs');
 const path = require('path');
 
-let puppeteer;
-try { puppeteer = require('puppeteer-core'); } catch(e) { puppeteer = require('puppeteer'); }
-
-const originalLaunch = puppeteer.launch;
-puppeteer.launch = async function(options) {
-    const safeArgs = (options?.args || []).filter(arg => !arg.includes('--headless'));
-    const newOptions = {
-        ...options,
-        headless: "new", // 🔥 최신 Headless 모드를 강제하여 렌더링 안정성 확보
-        defaultViewport: { width: 1080, height: 1920 },
-        args: [ 
-            ...safeArgs, 
-            '--no-sandbox', 
-            '--disable-setuid-sandbox', 
-            '--disable-dev-shm-usage', 
-            '--window-size=1080,1920'
-        ]
-    };
-    return originalLaunch.call(puppeteer, newOptions);
-};
-
 async function runGitHubRender() {
     console.log("🚀 GitHub Actions: Twick 즉석 조립 렌더링 엔진 가동 시작!");
 
@@ -40,16 +19,14 @@ async function runGitHubRender() {
         process.exit(1);
     }
 
-    // Base64 복호화 후 파일 생성
+    // Base64 복호화 후 템플릿 생성
     const templateCode = Buffer.from(encodedTemplateCode, 'base64').toString('utf8');
     const entryPath = path.join(__dirname, `${templateName}.jsx`);
     fs.writeFileSync(entryPath, templateCode, 'utf8');
     console.log(`✅ 템플릿 파일 정상 복호화 및 생성 완료: ${entryPath}`);
 
     const outputDir = path.join(__dirname, 'output');
-    [outputDir, path.join(outputDir, __dirname), path.join(outputDir, __dirname, 'output')].forEach(dir => {
-        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    });
+    if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
 
     const tempVideoName = 'final_shorts.mp4';
     const cleanContent = content.replace(/[ \t]+/g, ' ').trim();
@@ -63,14 +40,17 @@ async function runGitHubRender() {
                 entry: entryPath,
                 properties: {
                     postTitle: title, postContent: cleanContent, views: "15,820", postUp: 940,
-                    cardBgColor: config?.cardBgColor || "#1a1a24", config: config,
-                    width: 1080, height: 1920, durationInFrames: totalFrames, fps: FPS
+                    cardBgColor: config?.cardBgColor || "#1a1a24", config: config
                 },
-                durationInFrames: totalFrames, duration: estimatedSeconds, frameCount: totalFrames, fps: FPS, width: 1080, height: 1920
+                // 엔진이 정확히 인식하는 정위치
+                durationInFrames: totalFrames, 
+                fps: FPS, 
+                width: 1080, 
+                height: 1920
             }
         }, { outFile: tempVideoName, quality: "high" });
 
-        await new Promise(resolve => setTimeout(resolve, 3000));
+        await new Promise(resolve => setTimeout(resolve, 2000));
         const finalDest = path.join(__dirname, 'output', 'final_shorts.mp4');
         const possiblePaths = [path.join(__dirname, tempVideoName), path.join(outputDir, tempVideoName)];
 
