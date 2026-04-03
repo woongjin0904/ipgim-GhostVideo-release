@@ -1,3 +1,4 @@
+// github-render.js
 const fs = require('fs');
 const path = require('path');
 
@@ -36,7 +37,12 @@ async function runGitHubRender() {
     const configRaw = process.env.POST_CONFIG || "{}";
     const config = JSON.parse(configRaw);
 
-    const outputVideoPath = 'final_shorts.mp4';
+    // 💡 수정된 부분: output 폴더가 없으면 생성하고, 경로를 output/ 폴더 내부로 지정합니다.
+    const outputDir = path.join(__dirname, 'output');
+    if (!fs.existsSync(outputDir)) {
+        fs.mkdirSync(outputDir, { recursive: true });
+    }
+    const outputVideoPath = path.join(outputDir, 'final_shorts.mp4');
     
     const cleanContent = content.replace(/[ \t]+/g, ' ').trim();
 
@@ -71,7 +77,7 @@ async function runGitHubRender() {
             }
         );
 
-        console.log(`✅ 비디오 렌더링 완료!`);
+        console.log(`✅ 비디오 렌더링 완료! 저장 위치: ${videoPath}`);
     } catch (error) {
         console.error(`❌ 비디오 렌더링 실패:`, error);
         process.exit(1);
