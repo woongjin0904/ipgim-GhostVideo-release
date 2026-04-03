@@ -4,47 +4,48 @@ const path = require('path');
 let puppeteer;
 try { puppeteer = require('puppeteer-core'); } catch(e) { puppeteer = require('puppeteer'); }
 
-// 💡 7.8KB를 도출하며 에러를 뚫어냈던 성공적인 세팅으로 원상복구합니다.
 const originalLaunch = puppeteer.launch;
 puppeteer.launch = async function(options) {
     const safeArgs = (options?.args || []).filter(arg => !arg.includes('--headless'));
     return originalLaunch.call(puppeteer, {
         ...options,
-        headless: "new", // 🔥 이 설정이 가장 안정적입니다. 절대 false로 바꾸지 마세요.
-        defaultViewport: { width: 1080, height: 1920 }, // 화면 크기 명시
-        args: [
+        headless: "new", 
+        defaultViewport: { width: 1080, height: 1920 },
+        args: [ 
             ...safeArgs, 
             '--no-sandbox', 
             '--disable-setuid-sandbox', 
-            '--disable-dev-shm-usage', 
-            '--window-size=1080,1920', 
-            '--autoplay-policy=no-user-gesture-required' 
+            '--disable-dev-shm-usage',
+            '--window-size=1080,1920'
         ]
     });
 };
 
 async function runGitHubRender() {
-    console.log("🚀 GitHub Actions: Twick 즉석 조립 렌더링 엔진 가동 시작!");
+    console.log("🚀 GitHub Actions: 동적 코드 수신 및 조립 시작!");
 
-    const { renderTwickVideo } = await import('@twick/render-server');
+    // 🔥 1. 환경 변수로 전달받은 암호화된 코드를 꺼냅니다.
+    const encodedTemplateCode = process.env.TEMPLATE_CODE; 
+    const templateName = process.env.TEMPLATE_NAME || "DynamicTemplate";
 
-    const title = process.env.POST_TITLE || "제목 없음";
-    const content = process.env.POST_CONTENT || "내용이 없습니다.";
-    const templateCode = process.env.TEMPLATE_CODE; 
-    const config = JSON.parse(process.env.POST_CONFIG || "{}");
-    const templateName = process.env.TEMPLATE_NAME || "PremiumStoryShortsTemplate";
-
-    if (!templateCode) {
+    if (!encodedTemplateCode) {
         console.error("❌ 치명적 오류: 템플릿 코드를 전달받지 못했습니다.");
         process.exit(1);
     }
 
+    // 🔥 2. Base64 코드를 원래의 React 코드로 복구합니다.
+    const templateCode = Buffer.from(encodedTemplateCode, 'base64').toString('utf8');
+    
+    // 🔥 3. 엔진 가동 전, 즉석으로 .jsx 파일을 하드디스크에 생성합니다. (번들러 인식 완벽 성공)
     const entryPath = path.join(__dirname, `${templateName}.jsx`);
     fs.writeFileSync(entryPath, templateCode, 'utf8');
-    console.log(`✅ 템플릿 생성 완료: ${entryPath}`);
+    console.log(`✅ 백엔드 코드 수신 완료. 동적 템플릿 생성됨: ${entryPath}`);
 
-    const outputDir = path.join(__dirname, 'output');
-    if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
+    // 이후 렌더링 로직
+    const { renderTwickVideo } = await import('@twick/render-server');
+    const title = process.env.POST_TITLE || "제목 없음";
+    const content = process.env.POST_CONTENT || "내용 없음";
+    const config = JSON.parse(process.env.POST_CONFIG || "{}");
 
     const tempVideoName = 'final_shorts.mp4';
     const cleanContent = content.replace(/[ \t]+/g, ' ').trim();
@@ -52,35 +53,32 @@ async function runGitHubRender() {
     const estimatedSeconds = Math.max(cleanContent.length / 15, 5) + 2; 
     const totalFrames = Math.ceil(estimatedSeconds * FPS);
 
-    console.log(`🎬 렌더링 세팅: ${totalFrames}프레임 (${estimatedSeconds}초)`);
-
     try {
         await renderTwickVideo({
             input: {
-                entry: entryPath, 
+                entry: entryPath, // 🔥 방금 즉석에서 만든 파일을 타겟으로 지정!
                 properties: {
-                    postTitle: title, 
-                    postContent: cleanContent, 
-                    views: "15,820", 
-                    postUp: 940,
-                    cardBgColor: config?.cardBgColor || "#1a1a24"
+                    postTitle: title, postContent: cleanContent, cardBgColor: config?.cardBgColor || "#1a1a24"
                 },
-                // 엔진이 0프레임으로 튕기지 않도록 깔끔하게 필수 속성만 남김
-                durationInFrames: totalFrames,
-                fps: FPS, 
-                width: 1080, 
-                height: 1920
+                durationInFrames: totalFrames, fps: FPS, width: 1080, height: 1920
             }
-        }, { 
-            outFile: path.join(outputDir, tempVideoName), 
-            quality: "high" 
-        });
+        }, { outFile: tempVideoName, quality: "high" });
 
-        console.log(`📂 최종 파일 렌더링 완료!`);
-    } catch (error) {
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        
+        const outputDir = path.join(__dirname, 'output');
+        if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
+        
+        const finalDest = path.join(__dirname, 'output', 'final_shorts.mp4');
+        if (fs.existsSync(tempVideoName)) {
+            fs.renameSync(tempVideoName, finalDest);
+            console.log(`✅ 동적 렌더링 완벽 성공! 파일 크기: ${fs.statSync(finalDest).size} bytes`);
+        } else {
+            throw new Error("결과물이 생성되지 않았습니다.");
+        }
+    } catch (error) { 
         console.error(`❌ 비디오 렌더링 실패:`, error);
         process.exit(1);
     }
 }
-
 runGitHubRender();
