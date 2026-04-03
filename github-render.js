@@ -37,7 +37,19 @@ async function runGitHubRender() {
     const configRaw = process.env.POST_CONFIG || "{}";
     const config = JSON.parse(configRaw);
 
-    // 🔥 엔진 경로 꼬임 버그 방지를 위해 1차적으로는 최상위 경로에 저장하도록 지시
+    // 🔥 [핵심 우회 로직] Twick 엔진의 멍청한 "경로 중복 결합 버그"를 막기 위해
+    // 엔진이 멋대로 만들어내는 기형적인 폴더 구조를 렌더링 전에 아예 다 만들어버립니다.
+    const outputDir = path.join(__dirname, 'output');
+    const buggyDir1 = path.join(outputDir, __dirname); 
+    const buggyDir2 = path.join(outputDir, __dirname, 'output');
+    
+    [outputDir, buggyDir1, buggyDir2].forEach(dir => {
+        if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+        }
+    });
+
+    // 엔진에게는 제일 단순한 파일명만 전달
     const tempVideoName = 'final_shorts.mp4';
     
     const cleanContent = content.replace(/[ \t]+/g, ' ').trim();
@@ -73,21 +85,34 @@ async function runGitHubRender() {
             }
         );
 
-        console.log(`✅ 1차 비디오 렌더링 성공!`);
+        console.log(`✅ 1차 비디오 렌더링(엔진 통과) 성공!`);
 
-        // 🔥 렌더링 성공 후 직접 output 폴더를 만들고 파일을 옮겨줍니다. (YAML 호환을 위함)
-        const outputDir = path.join(__dirname, 'output');
-        if (!fs.existsSync(outputDir)) {
-            fs.mkdirSync(outputDir, { recursive: true });
+        // 🔥 영상이 저 기형적인 폴더들 중 어디에 처박혔는지 찾아서 정상 위치로 꺼내옵니다.
+        const finalDest = path.join(__dirname, 'output', 'final_shorts.mp4');
+        const possiblePaths = [
+            path.join(__dirname, tempVideoName),
+            path.join(outputDir, tempVideoName),
+            path.join(buggyDir1, tempVideoName),
+            path.join(buggyDir2, tempVideoName),
+        ];
+
+        let foundPath = null;
+        for (const p of possiblePaths) {
+            if (fs.existsSync(p)) {
+                foundPath = p;
+                break;
+            }
         }
-        
-        const sourcePath = path.join(__dirname, tempVideoName);
-        const destPath = path.join(outputDir, tempVideoName);
-        
-        // 파일 이동(rename)
-        fs.renameSync(sourcePath, destPath);
 
-        console.log(`📂 최종 파일 이동 완료! 저장 위치: ${destPath}`);
+        if (foundPath) {
+            // 구출한 파일을 YAML이 기다리고 있는 output/final_shorts.mp4 로 최종 이동
+            if (foundPath !== finalDest) {
+                fs.renameSync(foundPath, finalDest);
+            }
+            console.log(`📂 최종 파일 구출 완료! YAML 업로드 준비 끝: ${finalDest}`);
+        } else {
+            throw new Error("렌더링은 에러 없이 끝났으나 결과 파일을 찾을 수 없습니다.");
+        }
 
     } catch (error) {
         console.error(`❌ 비디오 렌더링 실패:`, error);
