@@ -37,12 +37,14 @@ async function runGitHubRender() {
     const configRaw = process.env.POST_CONFIG || "{}";
     const config = JSON.parse(configRaw);
 
-    // 💡 수정된 부분: output 폴더가 없으면 생성하고, 경로를 output/ 폴더 내부로 지정합니다.
+    // 폴더 생성 로직은 그대로 유지하되
     const outputDir = path.join(__dirname, 'output');
     if (!fs.existsSync(outputDir)) {
         fs.mkdirSync(outputDir, { recursive: true });
     }
-    const outputVideoPath = path.join(outputDir, 'final_shorts.mp4');
+    
+    // 🔥 수정된 부분: 엔진 내부 버그 방지를 위해 상대 경로로 명시합니다.
+    const outputVideoPath = 'output/final_shorts.mp4';
     
     const cleanContent = content.replace(/[ \t]+/g, ' ').trim();
 
