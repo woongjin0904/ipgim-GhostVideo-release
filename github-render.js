@@ -1,6 +1,30 @@
 const fs = require('fs');
 const path = require('path');
 
+let puppeteer;
+try {
+    puppeteer = require('puppeteer-core');
+} catch(e) {
+    puppeteer = require('puppeteer');
+}
+
+const originalLaunch = puppeteer.launch;
+puppeteer.launch = async function(options) {
+    const newOptions = {
+        ...options,
+        args: [
+            ...(options?.args || []),
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-gpu',
+            '--disable-software-rasterizer',
+            '--disable-dev-shm-usage',
+            '--disable-web-security'
+        ]
+    };
+    return originalLaunch.call(puppeteer, newOptions);
+};
+
 async function runGitHubRender() {
     console.log("🚀 GitHub Actions: Twick 리눅스 렌더링 엔진 가동 시작!");
 
@@ -16,7 +40,7 @@ async function runGitHubRender() {
         fs.mkdirSync(outputDir, { recursive: true });
     }
 
-    const outputVideoPath = 'final_shorts.mp4'; 
+    const outputVideoPath = path.join(outputDir, 'final_shorts.mp4'); 
     
     const cleanContent = content.replace(/[ \t]+/g, ' ').trim();
 
@@ -56,5 +80,5 @@ async function runGitHubRender() {
         process.exit(1);
     }
 }
-
+ 
 runGitHubRender();
