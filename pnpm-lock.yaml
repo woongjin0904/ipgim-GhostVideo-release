@@ -47,6 +47,9 @@ importers:
       react-dom:
         specifier: ^18.2.0
         version: 18.3.1(react@18.3.1)
+      remotion:
+        specifier: ^4.0.0
+        version: 4.0.443(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
 
 packages:
 
@@ -1266,6 +1269,12 @@ packages:
   react@18.3.1:
     resolution: {integrity: sha512-wS+hAgJShR0KhEvPJArfuPVN1+Hz1t0Y6n5jLrGQbkb4urgPE/0Rve+1kMB1v/oWgHgm4WIcV+i7F2pTVj+2iQ==}
     engines: {node: '>=0.10.0'}
+
+  remotion@4.0.443:
+    resolution: {integrity: sha512-zfqqhy4TN148lT2Rf6Xl6iYLnnCdh4WNpZM+iZ1aTe9vbMNY1Wb3FAcQNN2hnUi2hfPdD8zOpwdt9/KDRZEN9A==}
+    peerDependencies:
+      react: '>=16.8.0'
+      react-dom: '>=16.8.0'
 
   require-directory@2.1.1:
     resolution: {integrity: sha512-fGxEI7+wsG9xrvdjsrlmL22OMTTiHRwAMroiEeMgq8gzoLC/PQr7RsRDSTLUg/bZAZtF+TVIkHc6/4RIKrui+Q==}
@@ -2885,6 +2894,11 @@ snapshots:
   react@18.3.1:
     dependencies:
       loose-envify: 1.4.0
+
+  remotion@4.0.443(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
+    dependencies:
+      react: 18.3.1
+      react-dom: 18.3.1(react@18.3.1)
 
   require-directory@2.1.1: {}
 

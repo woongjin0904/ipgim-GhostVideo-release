@@ -12,6 +12,7 @@
     "@twick/render-server": "^0.15.27",
     "@twick/renderer": "^0.15.27",
     "@twick/visualizer": "^0.15.27",
+    "remotion": "^4.0.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "puppeteer": "^23.11.1",
