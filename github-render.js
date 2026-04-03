@@ -2,6 +2,31 @@
 const fs = require('fs');
 const path = require('path');
 
+let puppeteer;
+try {
+    puppeteer = require('puppeteer-core');
+} catch(e) {
+    puppeteer = require('puppeteer');
+}
+
+const originalLaunch = puppeteer.launch;
+puppeteer.launch = async function(options) {
+    const newOptions = {
+        ...options,
+        args: [
+            ...(options?.args || []),
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-web-security',
+            '--disable-gpu', // 🔥 필수: 리눅스 환경에서 크롬 크래시 방지 (0% 에러 해결)
+            '--window-size=1080,1920' // 🔥 화면을 강제로 쇼츠 비율로 고정
+            // 🚫 주의: '--disable-software-rasterizer'는 절대 넣지 마세요! (블랙스크린 원인)
+        ]
+    };
+    return originalLaunch.call(puppeteer, newOptions);
+};
+
 async function runGitHubRender() {
     console.log("🚀 GitHub Actions: Twick 리눅스 렌더링 엔진 가동 시작!");
 
@@ -13,7 +38,7 @@ async function runGitHubRender() {
     const configRaw = process.env.POST_CONFIG || "{}";
     const config = JSON.parse(configRaw);
 
-    // 🔥 1. FFmpeg 경로 꼬임 버그(0바이트 파일 원인)를 회피하기 위한 기형적 폴더 선행 생성
+    // [유지] FFmpeg 경로 꼬임 버그 방지용 기형적 폴더 선행 생성
     const outputDir = path.join(__dirname, 'output');
     const buggyDir1 = path.join(outputDir, __dirname); 
     const buggyDir2 = path.join(outputDir, __dirname, 'output');
@@ -38,21 +63,21 @@ async function runGitHubRender() {
             {
                 input: {
                     entry: path.join(__dirname, 'video', `${templateName}.jsx`),
-                    // 🔥 2. 화면 크기 0x0 에러의 진범 해결:
-                    // Twick이 캔버스 크기를 정상적으로 잡을 수 있도록 properties 안에 해상도를 다시 넣어줍니다.
+                    // 🔥 엔진 파서가 어디서 값을 찾든 무조건 읽을 수 있도록 이중으로 값을 꽂아 넣습니다.
                     properties: {
-                        width: 1080,
-                        height: 1920,
                         postTitle: title,
                         postContent: cleanContent,
                         views: "15,820",
                         postUp: 940,
                         cardBgColor: config?.cardBgColor || "#ffd7d7",
-                        config: config
+                        config: config,
+                        width: 1080,
+                        height: 1920,
+                        durationInFrames: totalFrames,
+                        fps: FPS
                     },
                     durationInFrames: totalFrames,
                     fps: FPS,
-                    // 혹시 모를 이중 안전장치로 밖에도 명시합니다.
                     width: 1080,
                     height: 1920
                 }
@@ -65,7 +90,7 @@ async function runGitHubRender() {
 
         console.log(`✅ 1차 비디오 렌더링(엔진 통과) 성공!`);
 
-        // 🔥 3. 기형적인 폴더 구조 어딘가에 처박힌 완성된 영상을 찾아 정상 위치로 구출
+        // [유지] 저장된 파일을 찾아서 정상 위치로 구출
         const finalDest = path.join(__dirname, 'output', 'final_shorts.mp4');
         const possiblePaths = [
             path.join(__dirname, tempVideoName),
