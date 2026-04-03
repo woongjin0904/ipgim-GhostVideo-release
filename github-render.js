@@ -2,8 +2,33 @@
 const fs = require('fs');
 const path = require('path');
 
-// 🚫 [핵심 조치] 리눅스 비디오 인코더를 고장내던 윈도우용 몽키 패치(puppeteer.launch 덮어쓰기)를 완전히 삭제했습니다.
-// Twick 엔진 내부의 최적화된 Puppeteer 설정이 알아서 작동하도록 맡겨야 합니다.
+let puppeteer;
+try {
+    puppeteer = require('puppeteer-core');
+} catch(e) {
+    puppeteer = require('puppeteer');
+}
+
+const originalLaunch = puppeteer.launch;
+puppeteer.launch = async function(options) {
+    const newOptions = {
+        ...options,
+        // 🔥 핵심 1: H.264 코덱이 포함된 깃허브 서버의 '정식 상용 구글 크롬'을 강제 지정합니다.
+        executablePath: '/usr/bin/google-chrome',
+        args: [
+            ...(options?.args || []),
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-web-security',
+            // 🔥 핵심 2: GPU가 없는 리눅스에서 화면과 픽셀을 완벽하게 렌더링하는 소프트웨어 가속기
+            '--use-gl=swiftshader',
+            '--window-size=1080,1920',
+            '--autoplay-policy=no-user-gesture-required'
+        ]
+    };
+    return originalLaunch.call(puppeteer, newOptions);
+};
 
 async function runGitHubRender() {
     console.log("🚀 GitHub Actions: Twick 리눅스 렌더링 엔진 가동 시작!");
@@ -16,7 +41,6 @@ async function runGitHubRender() {
     const configRaw = process.env.POST_CONFIG || "{}";
     const config = JSON.parse(configRaw);
 
-    // [유지] FFmpeg 경로 꼬임 버그 방지용 기형적 폴더 선행 생성
     const outputDir = path.join(__dirname, 'output');
     const buggyDir1 = path.join(outputDir, __dirname); 
     const buggyDir2 = path.join(outputDir, __dirname, 'output');
@@ -31,7 +55,6 @@ async function runGitHubRender() {
     const cleanContent = content.replace(/[ \t]+/g, ' ').trim();
 
     const FPS = 30;
-    // 예상 영상 길이 계산 (글자수에 비례)
     const estimatedSeconds = Math.max(cleanContent.length / 15, 5) + 2; 
     const totalFrames = Math.ceil(estimatedSeconds * FPS);
 
@@ -49,13 +72,11 @@ async function runGitHubRender() {
                         postUp: 940,
                         cardBgColor: config?.cardBgColor || "#1a1a24",
                         config: config,
-                        // 안전을 위해 properties 안쪽에도 사이즈를 명시
                         width: 1080,
                         height: 1920,
                         durationInFrames: totalFrames,
                         fps: FPS
                     },
-                    // Twick 엔진이 0초로 강제 종료하지 못하도록 정확한 프레임과 사이즈 명시
                     durationInFrames: totalFrames,
                     fps: FPS,
                     width: 1080,
@@ -68,9 +89,11 @@ async function runGitHubRender() {
             }
         );
 
-        console.log(`✅ 1차 비디오 렌더링(엔진 통과) 성공!`);
+        console.log(`✅ 비디오 렌더링 엔진 통과! FFmpeg 스트림 안정화 대기 중...`);
+        
+        // 🔥 핵심 3: 비동기 버그 회피. FFmpeg가 MP4 파일을 디스크에 완전히 기록할 수 있도록 3초 대기합니다.
+        await new Promise(resolve => setTimeout(resolve, 3000));
 
-        // [유지] 저장된 0바이트가 아닌 진짜 파일을 찾아 정상 위치로 구출
         const finalDest = path.join(__dirname, 'output', 'final_shorts.mp4');
         const possiblePaths = [
             path.join(__dirname, tempVideoName),
@@ -91,7 +114,7 @@ async function runGitHubRender() {
             if (foundPath !== finalDest) {
                 fs.renameSync(foundPath, finalDest);
             }
-            console.log(`📂 최종 파일 구출 완료! YAML 업로드 준비 끝: ${finalDest}`);
+            console.log(`📂 최종 파일 구출 완료! 크기 확인: ${fs.statSync(finalDest).size} bytes. YAML 업로드 준비 끝: ${finalDest}`);
         } else {
             throw new Error("렌더링은 에러 없이 끝났으나 결과 파일을 찾을 수 없습니다.");
         }
