@@ -56,8 +56,11 @@ jobs:
           find node_modules -name "ffmpeg" -type f -exec chmod +x {} \;
 
       - name: Run Twick Render
+        # DEBUG 모드와 LOG_LEVEL 추가
         run: xvfb-run --auto-servernum --server-args="-screen 0 1080x1920x24" node github-render.js
         env:
+          DEBUG: 'puppeteer:*'
+          REMOTION_PUPPETEER_LOG_LEVEL: 'verbose'
           POST_TITLE: ${{ github.event.inputs.title }}
           POST_CONTENT: ${{ github.event.inputs.content }}
           POST_CONFIG: ${{ github.event.inputs.config }}
