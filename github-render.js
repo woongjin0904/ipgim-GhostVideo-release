@@ -4,33 +4,24 @@ const path = require('path');
 let puppeteer;
 try { puppeteer = require('puppeteer-core'); } catch(e) { puppeteer = require('puppeteer'); }
 
-// 💡 [핵심] 가상 모니터(Xvfb) 강제 연결 및 소프트웨어 인코딩 강제
 const originalLaunch = puppeteer.launch;
 puppeteer.launch = async function(options) {
-    // 혹시라도 숨어있을 headless 옵션 제거
-    const safeArgs = (options.args || []).filter(arg => !arg.includes('--headless'));
-
     return originalLaunch.call(puppeteer, {
         ...options,
-        executablePath: '/usr/bin/google-chrome', // 설치한 진짜 크롬 사용
-        headless: false, // 🔥 "new" 절대 금지! false로 해야 Xvfb 가상 모니터를 사용해 0x0 버그가 사라집니다.
-        defaultViewport: { width: 1080, height: 1920 },
+        dumpio: true, // 🔥 [핵심 1] 브라우저 내부의 모든 침묵된 에러를 터미널로 강제 송출
         args: [
-            ...safeArgs,
+            ...(options.args || []),
             '--no-sandbox',
             '--disable-setuid-sandbox',
             '--disable-dev-shm-usage',
-            '--disable-gpu', 
-            '--disable-accelerated-video-encode', // 🔥 GPU가 없는 CI 환경에서 비디오 인코더 고장 방지 (소프트웨어 렌더링 강제)
-            '--disable-accelerated-video-decode',
-            '--window-size=1080,1920',
-            '--display=:99' // Xvfb 포트에 명시적 연결
+            '--disable-gpu',
+            '--window-size=1080,1920'
         ]
     });
 };
 
 async function runGitHubRender() {
-    console.log("🚀 GitHub Actions: 동적 코드 수신 및 렌더링 준비 시작!");
+    console.log("🚀 GitHub Actions: 최후의 렌더링 엔진 가동 시작!");
 
     const encodedTemplateCode = process.env.TEMPLATE_CODE; 
     const templateName = process.env.TEMPLATE_NAME || "PremiumStoryShortsTemplate";
@@ -42,23 +33,54 @@ async function runGitHubRender() {
 
     const templateCode = Buffer.from(encodedTemplateCode, 'base64').toString('utf8');
     
-    // 로컬 환경과 동일하게 video 폴더 사용
+    // 번들러가 인식하던 원래 경로인 video 폴더 사용
     const videoDir = path.join(__dirname, 'video');
     if (!fs.existsSync(videoDir)) fs.mkdirSync(videoDir, { recursive: true });
     
-    // 유저의 원본 템플릿을 생성
-    const entryPath = path.join(videoDir, `${templateName}.jsx`);
-    fs.writeFileSync(entryPath, templateCode, 'utf8');
+    const templatePath = path.join(videoDir, `${templateName}.jsx`);
+    fs.writeFileSync(templatePath, templateCode, 'utf8');
+
+    // 🔥 [핵심 2] 무조건 1080x1920 크기를 보장하며 에러를 화면에 띄우는 벙커 래퍼 생성
+    const wrapperCode = `
+import React from 'react';
+import Template from './${templateName}';
+
+class ErrorBoundary extends React.Component {
+    constructor(props) { super(props); this.state = { hasError: false, error: null }; }
+    static getDerivedStateFromError(error) { return { hasError: true, error }; }
+    render() {
+        if (this.state.hasError) {
+            return (
+                <div style={{ width: '1080px', height: '1920px', backgroundColor: '#500', color: '#fff', padding: '60px', boxSizing: 'border-box' }}>
+                    <h1 style={{ fontSize: '60px', marginBottom: '20px' }}>🚨 React Render Error</h1>
+                    <p style={{ fontSize: '40px', wordBreak: 'break-all' }}>{String(this.state.error)}</p>
+                </div>
+            );
+        }
+        return <Template {...this.props} />;
+    }
+}
+
+export default function RenderBunker(props) {
+    return (
+        <div style={{ width: '1080px', height: '1920px', position: 'absolute', top: 0, left: 0, backgroundColor: '#000', overflow: 'hidden' }}>
+            <ErrorBoundary>
+                <Template {...props} />
+            </ErrorBoundary>
+        </div>
+    );
+}
+    `;
+    const entryPath = path.join(videoDir, 'RenderBunker.jsx');
+    fs.writeFileSync(entryPath, wrapperCode, 'utf8');
     
-    console.log(`✅ 동적 템플릿 생성 완료: ${entryPath}`);
-    console.log(`📝 코드 프리뷰 (앞 50자): ${templateCode.substring(0, 50).replace(/\n/g, '')}...`);
+    console.log(`✅ 동적 템플릿 및 방어벽(Bunker) 생성 완료`);
 
     const { renderTwickVideo } = await import('@twick/render-server');
     const title = process.env.POST_TITLE || "제목 없음";
     const content = process.env.POST_CONTENT || "내용 없음";
     const config = JSON.parse(process.env.POST_CONFIG || "{}");
 
-    const tempVideoName = 'final_shorts.mp4';
     const cleanContent = content.replace(/[ \t]+/g, ' ').trim();
     const FPS = 30;
     const estimatedSeconds = Math.max(cleanContent.length / 15, 5) + 2; 
@@ -69,7 +91,7 @@ async function runGitHubRender() {
     try {
         await renderTwickVideo({
             input: {
-                entry: entryPath, 
+                entry: entryPath, // 원본 대신 벙커 래퍼를 주입
                 properties: {
                     postTitle: title, 
                     postContent: cleanContent, 
@@ -81,17 +103,17 @@ async function runGitHubRender() {
                 height: 1920
             }
         }, { 
-            outFile: tempVideoName, 
+            outFile: 'final_shorts.mp4', 
             quality: "high" 
         });
 
         const outputDir = path.join(__dirname, 'output');
         if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
-        
         const finalDest = path.join(outputDir, 'final_shorts.mp4');
-        if (fs.existsSync(tempVideoName)) {
-            fs.renameSync(tempVideoName, finalDest);
-            console.log(`✅ 비디오 렌더링 최종 성공! 파일 크기: ${fs.statSync(finalDest).size} bytes`);
+        
+        if (fs.existsSync('final_shorts.mp4')) {
+            fs.renameSync('final_shorts.mp4', finalDest);
+            console.log(`✅ 비디오 렌더링 완벽 성공!`);
         } else {
             throw new Error("렌더링은 완료되었으나 mp4 파일이 디스크에 생성되지 않았습니다.");
         }
