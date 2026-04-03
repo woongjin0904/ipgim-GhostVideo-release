@@ -90,11 +90,14 @@ registerRoot(RemotionRoot);
     const tempVideoName = 'final_shorts.mp4';
 
     try {
-        // 3단계: 엔진에게 템플릿 자체가 아닌, 'Root.jsx'를 진입점으로 넘깁니다.
-        // 이때 엔진 내부적으로 esbuild나 Webpack이 구동되어 JSX를 파싱하게 됩니다.
-        await renderTwickVideo({
+await renderTwickVideo({
             input: {
                 entry: rootPath, 
+                
+                // 💡 [핵심 해결책 추가] Root.jsx에서 등록한 Composition id를 명확히 지정합니다.
+                compositionId: 'DynamicShorts', 
+                id: 'DynamicShorts', // (Twick 래퍼 버전에 따라 id 속성을 요구할 수도 있어 안전하게 둘 다 명시)
+                
                 properties: propsData, // Props로 데이터 주입
                 durationInFrames: totalFrames, 
                 fps: FPS, 
