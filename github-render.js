@@ -35,12 +35,7 @@ async function runGitHubRender() {
     const configRaw = process.env.POST_CONFIG || "{}";
     const config = JSON.parse(configRaw);
 
-    const outputDir = path.join(__dirname, 'output');
-    if (!fs.existsSync(outputDir)) {
-        fs.mkdirSync(outputDir, { recursive: true });
-    }
-
-    const outputVideoPath = 'output/final_shorts.mp4'; 
+    const outputVideoPath = 'final_shorts.mp4'; 
     
     const cleanContent = content.replace(/[ \t]+/g, ' ').trim();
 
