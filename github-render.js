@@ -13,6 +13,8 @@ const originalLaunch = puppeteer.launch;
 puppeteer.launch = async function(options) {
     const newOptions = {
         ...options,
+        // 🔥 [핵심 추가] 모니터가 없는 리눅스 서버에서 화면이 0x0으로 찌그러지는 현상 완벽 방지
+        defaultViewport: { width: 1080, height: 1920, deviceScaleFactor: 1 },
         args: [
             ...(options?.args || []),
             '--no-sandbox',
@@ -20,7 +22,8 @@ puppeteer.launch = async function(options) {
             '--disable-gpu',
             '--disable-software-rasterizer',
             '--disable-dev-shm-usage',
-            '--disable-web-security'
+            '--disable-web-security',
+            '--window-size=1080,1920' // 🔥 브라우저 창 크기도 쇼츠 비율로 강제 고정
         ]
     };
     return originalLaunch.call(puppeteer, newOptions);
@@ -37,7 +40,7 @@ async function runGitHubRender() {
     const configRaw = process.env.POST_CONFIG || "{}";
     const config = JSON.parse(configRaw);
 
-    // 🔥 [핵심 우회 로직] Twick 엔진의 "경로 중복 결합 버그" 방지용
+    // [유지] Twick 엔진의 경로 중복 결합 버그 우회용 폴더 생성
     const outputDir = path.join(__dirname, 'output');
     const buggyDir1 = path.join(outputDir, __dirname); 
     const buggyDir2 = path.join(outputDir, __dirname, 'output');
@@ -48,9 +51,7 @@ async function runGitHubRender() {
         }
     });
 
-    // 엔진에게는 제일 단순한 파일명만 전달
     const tempVideoName = 'final_shorts.mp4';
-    
     const cleanContent = content.replace(/[ \t]+/g, ' ').trim();
 
     const FPS = 30;
@@ -74,8 +75,8 @@ async function runGitHubRender() {
                     },
                     durationInFrames: totalFrames,
                     fps: FPS,
-                    width: 1080,   // 🔥 수정됨: properties 밖으로 올바르게 이동
-                    height: 1920   // 🔥 수정됨: properties 밖으로 올바르게 이동
+                    width: 1080,
+                    height: 1920
                 }
             },
             {
@@ -86,7 +87,7 @@ async function runGitHubRender() {
 
         console.log(`✅ 1차 비디오 렌더링(엔진 통과) 성공!`);
 
-        // 🔥 영상이 저 기형적인 폴더들 중 어디에 처박혔는지 찾아서 정상 위치로 꺼내옵니다.
+        // [유지] 저장된 영상을 찾아 정상 위치로 구출
         const finalDest = path.join(__dirname, 'output', 'final_shorts.mp4');
         const possiblePaths = [
             path.join(__dirname, tempVideoName),
@@ -104,7 +105,6 @@ async function runGitHubRender() {
         }
 
         if (foundPath) {
-            // 구출한 파일을 YAML이 기다리고 있는 output/final_shorts.mp4 로 최종 이동
             if (foundPath !== finalDest) {
                 fs.renameSync(foundPath, finalDest);
             }
