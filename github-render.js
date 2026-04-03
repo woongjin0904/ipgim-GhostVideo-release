@@ -4,14 +4,14 @@ const path = require('path');
 let puppeteer;
 try { puppeteer = require('puppeteer-core'); } catch(e) { puppeteer = require('puppeteer'); }
 
-// 💡 VideoEncoder 충돌을 막아낸 성공적인 몽키 패치 (그대로 유지)
+// 💡 7.8KB를 도출하며 에러를 뚫어냈던 성공적인 세팅으로 원상복구합니다.
 const originalLaunch = puppeteer.launch;
 puppeteer.launch = async function(options) {
     const safeArgs = (options?.args || []).filter(arg => !arg.includes('--headless'));
     return originalLaunch.call(puppeteer, {
         ...options,
-        headless: false, 
-        defaultViewport: { width: 1080, height: 1920 },
+        headless: "new", // 🔥 이 설정이 가장 안정적입니다. 절대 false로 바꾸지 마세요.
+        defaultViewport: { width: 1080, height: 1920 }, // 화면 크기 명시
         args: [
             ...safeArgs, 
             '--no-sandbox', 
@@ -24,7 +24,7 @@ puppeteer.launch = async function(options) {
 };
 
 async function runGitHubRender() {
-    console.log("🚀 GitHub Actions: Twick 조립 렌더링 엔진 가동 시작!");
+    console.log("🚀 GitHub Actions: Twick 즉석 조립 렌더링 엔진 가동 시작!");
 
     const { renderTwickVideo } = await import('@twick/render-server');
 
@@ -65,7 +65,7 @@ async function runGitHubRender() {
                     postUp: 940,
                     cardBgColor: config?.cardBgColor || "#1a1a24"
                 },
-                // 🔥 [0:00 버그 수정] 엔진을 0프레임으로 튕기게 만든 잡다한 파라미터를 지우고 표준만 넘깁니다.
+                // 엔진이 0프레임으로 튕기지 않도록 깔끔하게 필수 속성만 남김
                 durationInFrames: totalFrames,
                 fps: FPS, 
                 width: 1080, 
