@@ -2,30 +2,8 @@
 const fs = require('fs');
 const path = require('path');
 
-let puppeteer;
-try {
-    puppeteer = require('puppeteer-core');
-} catch(e) {
-    puppeteer = require('puppeteer');
-}
-
-const originalLaunch = puppeteer.launch;
-puppeteer.launch = async function(options) {
-    const newOptions = {
-        ...options,
-        args: [
-            ...(options?.args || []),
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
-            '--disable-web-security',
-            '--disable-gpu', // 🔥 필수: 리눅스 환경에서 크롬 크래시 방지 (0% 에러 해결)
-            '--window-size=1080,1920' // 🔥 화면을 강제로 쇼츠 비율로 고정
-            // 🚫 주의: '--disable-software-rasterizer'는 절대 넣지 마세요! (블랙스크린 원인)
-        ]
-    };
-    return originalLaunch.call(puppeteer, newOptions);
-};
+// 🚫 [핵심 조치] 리눅스 비디오 인코더를 고장내던 윈도우용 몽키 패치(puppeteer.launch 덮어쓰기)를 완전히 삭제했습니다.
+// Twick 엔진 내부의 최적화된 Puppeteer 설정이 알아서 작동하도록 맡겨야 합니다.
 
 async function runGitHubRender() {
     console.log("🚀 GitHub Actions: Twick 리눅스 렌더링 엔진 가동 시작!");
@@ -53,6 +31,7 @@ async function runGitHubRender() {
     const cleanContent = content.replace(/[ \t]+/g, ' ').trim();
 
     const FPS = 30;
+    // 예상 영상 길이 계산 (글자수에 비례)
     const estimatedSeconds = Math.max(cleanContent.length / 15, 5) + 2; 
     const totalFrames = Math.ceil(estimatedSeconds * FPS);
 
@@ -63,19 +42,20 @@ async function runGitHubRender() {
             {
                 input: {
                     entry: path.join(__dirname, 'video', `${templateName}.jsx`),
-                    // 🔥 엔진 파서가 어디서 값을 찾든 무조건 읽을 수 있도록 이중으로 값을 꽂아 넣습니다.
                     properties: {
                         postTitle: title,
                         postContent: cleanContent,
                         views: "15,820",
                         postUp: 940,
-                        cardBgColor: config?.cardBgColor || "#ffd7d7",
+                        cardBgColor: config?.cardBgColor || "#1a1a24",
                         config: config,
+                        // 안전을 위해 properties 안쪽에도 사이즈를 명시
                         width: 1080,
                         height: 1920,
                         durationInFrames: totalFrames,
                         fps: FPS
                     },
+                    // Twick 엔진이 0초로 강제 종료하지 못하도록 정확한 프레임과 사이즈 명시
                     durationInFrames: totalFrames,
                     fps: FPS,
                     width: 1080,
@@ -90,7 +70,7 @@ async function runGitHubRender() {
 
         console.log(`✅ 1차 비디오 렌더링(엔진 통과) 성공!`);
 
-        // [유지] 저장된 파일을 찾아서 정상 위치로 구출
+        // [유지] 저장된 0바이트가 아닌 진짜 파일을 찾아 정상 위치로 구출
         const finalDest = path.join(__dirname, 'output', 'final_shorts.mp4');
         const possiblePaths = [
             path.join(__dirname, tempVideoName),
