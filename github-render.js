@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const puppeteer = require('puppeteer-core');
+const puppeteer = require('puppeteer');
 
 // 디버깅을 위해 브라우저 내부 에러를 Node 터미널로 끌어옵니다.
 process.env.REMOTION_PUPPETEER_LOG_LEVEL = 'verbose';
