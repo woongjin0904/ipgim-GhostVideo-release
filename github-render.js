@@ -10,11 +10,15 @@ puppeteer.launch = async function(options) {
     const safeArgs = (options?.args || []).filter(arg => !arg.includes('--headless'));
     const newOptions = {
         ...options,
-        // 🔥 [핵심 복구] H.264 코덱이 포함된 정식 크롬을 강제 지정 (0바이트 버그 차단)
-        executablePath: '/usr/bin/google-chrome',
-        headless: false, 
-        defaultViewport: null, 
-        args: [ ...safeArgs, '--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--window-size=1080,1920', '--autoplay-policy=no-user-gesture-required' ]
+        headless: "new", // 🔥 최신 Headless 모드를 강제하여 렌더링 안정성 확보
+        defaultViewport: { width: 1080, height: 1920 },
+        args: [ 
+            ...safeArgs, 
+            '--no-sandbox', 
+            '--disable-setuid-sandbox', 
+            '--disable-dev-shm-usage', 
+            '--window-size=1080,1920'
+        ]
     };
     return originalLaunch.call(puppeteer, newOptions);
 };
@@ -36,7 +40,7 @@ async function runGitHubRender() {
         process.exit(1);
     }
 
-    // 🔥 [핵심 복구] 전달받은 Base64 문자열을 원본 React 코드로 복호화
+    // Base64 복호화 후 파일 생성
     const templateCode = Buffer.from(encodedTemplateCode, 'base64').toString('utf8');
     const entryPath = path.join(__dirname, `${templateName}.jsx`);
     fs.writeFileSync(entryPath, templateCode, 'utf8');
