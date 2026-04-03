@@ -1,4 +1,3 @@
-// github-render.js
 const fs = require('fs');
 const path = require('path');
 
@@ -24,19 +23,19 @@ async function runGitHubRender() {
 
     const title = process.env.POST_TITLE || "제목 없음";
     const content = process.env.POST_CONTENT || "내용이 없습니다.";
-    const templateCode = process.env.TEMPLATE_CODE; 
     const config = JSON.parse(process.env.POST_CONFIG || "{}");
-    
-    // 🔥 프론트엔드에서 지정한 템플릿 이름을 가져옵니다.
     const templateName = process.env.TEMPLATE_NAME || "PremiumStoryShortsTemplate";
+    
+    // 🔥 [핵심 2] 전달받은 Base64 문자열을 가져옵니다.
+    const encodedTemplateCode = process.env.TEMPLATE_CODE; 
 
-    if (!templateCode) {
+    if (!encodedTemplateCode) {
         console.error("❌ 치명적 오류: 백엔드로부터 템플릿 코드를 전달받지 못했습니다.");
         process.exit(1);
     }
 
-    // 🔥 [핵심 변경] 프론트엔드에서 설정한 템플릿 이름 그대로 파일을 생성합니다!
-    // 파일명과 내부 함수명이 달라도 상관없이 완벽하게 동기화되어 렌더링됩니다.
+    // 🔥 [핵심 3] Base64 코드를 원래의 React 코드로 복호화하여 파일을 생성합니다. (주석/줄바꿈 완벽 보존)
+    const templateCode = Buffer.from(encodedTemplateCode, 'base64').toString('utf8');
     const entryPath = path.join(__dirname, `${templateName}.jsx`);
     fs.writeFileSync(entryPath, templateCode, 'utf8');
     console.log(`✅ 프론트엔드 설정 동기화 완료! 생성된 템플릿: ${entryPath}`);
@@ -55,7 +54,7 @@ async function runGitHubRender() {
     try {
         await renderTwickVideo({
             input: {
-                entry: entryPath, // 생성한 템플릿 파일 연결
+                entry: entryPath,
                 properties: {
                     postTitle: title, postContent: cleanContent, views: "15,820", postUp: 940,
                     cardBgColor: config?.cardBgColor || "#1a1a24", config: config,
