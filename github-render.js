@@ -36,7 +36,7 @@ async function runGitHubRender() {
     const configRaw = process.env.POST_CONFIG || "{}";
     const config = JSON.parse(configRaw);
 
-    const outputVideoPath = path.join(__dirname, 'final_shorts.mp4'); 
+    const outputVideoPath = 'final_shorts.mp4';
     
     const cleanContent = content.replace(/[ \t]+/g, ' ').trim();
 
