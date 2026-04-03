@@ -37,8 +37,7 @@ async function runGitHubRender() {
     const configRaw = process.env.POST_CONFIG || "{}";
     const config = JSON.parse(configRaw);
 
-    // 🔥 [핵심 우회 로직] Twick 엔진의 멍청한 "경로 중복 결합 버그"를 막기 위해
-    // 엔진이 멋대로 만들어내는 기형적인 폴더 구조를 렌더링 전에 아예 다 만들어버립니다.
+    // 🔥 [핵심 우회 로직] Twick 엔진의 "경로 중복 결합 버그" 방지용
     const outputDir = path.join(__dirname, 'output');
     const buggyDir1 = path.join(outputDir, __dirname); 
     const buggyDir2 = path.join(outputDir, __dirname, 'output');
@@ -66,8 +65,6 @@ async function runGitHubRender() {
                 input: {
                     entry: path.join(__dirname, 'video', `${templateName}.jsx`),
                     properties: {
-                        width: 1080,
-                        height: 1920,
                         postTitle: title,
                         postContent: cleanContent,
                         views: "15,820",
@@ -76,7 +73,9 @@ async function runGitHubRender() {
                         config: config
                     },
                     durationInFrames: totalFrames,
-                    fps: FPS
+                    fps: FPS,
+                    width: 1080,   // 🔥 수정됨: properties 밖으로 올바르게 이동
+                    height: 1920   // 🔥 수정됨: properties 밖으로 올바르게 이동
                 }
             },
             {
