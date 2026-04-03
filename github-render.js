@@ -35,43 +35,46 @@ puppeteer.launch = async function(options) {
 };
 
 async function runGitHubRender() {
-    console.log("🚀 GitHub Actions: Twick 렌더링 엔진 (720x1280) 가동!");
+    console.log("🚀 GitHub Actions: Twick 렌더링 엔진 가동!");
 
     const { renderTwickVideo } = await import('@twick/render-server');
 
-    // ... (환경 변수 파싱 및 파일 저장 로직 동일) ...
-    const title = process.env.POST_TITLE || "제목 없음";
-    const content = process.env.POST_CONTENT || "내용이 없습니다.";
-    const templateCode = process.env.TEMPLATE_CODE;
+    // 환경 변수에서 config 파싱
+    let inputConfig = {};
+    try {
+        inputConfig = JSON.parse(process.env.POST_CONFIG || "{}");
+    } catch (e) {
+        inputConfig = {};
+    }
+
     const templatePath = path.join(__dirname, 'Template.jsx');
-    fs.writeFileSync(templatePath, templateCode, 'utf8');
 
     try {
         await renderTwickVideo({
             input: {
                 entry: templatePath, 
                 properties: {
-                    postTitle: title, 
-                    postContent: content.replace(/[ \t]+/g, ' ').trim(), 
+                    postTitle: process.env.POST_TITLE, 
+                    postContent: (process.env.POST_CONTENT || "").replace(/[ \t]+/g, ' ').trim(), 
                     views: "15,820", 
                     postUp: 940,
-                    cardBgColor: "#1a1a24"
+                    cardBgColor: inputConfig.cardBgColor || "#1a1a24"
                 },
-                durationInFrames: 300, // 테스트용 고정 프레임 (필요시 계산식 복구)
+                durationInFrames: 300, 
                 fps: 30, 
-                width: 720, 
-                height: 1280
+                // 💡 여기서 width/height가 0이 되지 않도록 강제 보정합니다.
+                width: Number(inputConfig.width) || 720, 
+                height: Number(inputConfig.height) || 1280
             },
-            // 💡 렌더링 전 브라우저가 레이아웃을 잡을 시간을 벌어줍니다.
             beforeRender: async (page) => {
-                console.log("⏳ 레이아웃 안정화 대기 중...");
-                await page.setViewport({ width: 720, height: 1280 });
-                await new Promise(r => setTimeout(r, 3000)); // 3초 강제 대기
-                // 💡 요소 크기가 잡혔는지 체크하는 스크립트 실행 가능
+                // 💡 브라우저 내부에서 인코더가 작동하기 전 뷰포트를 한 번 더 확실히 잡습니다.
+                const w = Number(inputConfig.width) || 720;
+                const h = Number(inputConfig.height) || 1280;
+                await page.setViewport({ width: w, height: h });
+                await new Promise(r => setTimeout(r, 2000)); 
             }
-        }, { outFile: 'final_shorts.mp4', quality: "high" });
+        }, { outFile: 'output/final_shorts.mp4', quality: "high" });
 
-        // ... (파일 구출 로직 동일) ...
         console.log(`📂 렌더링 완료!`);
     } catch (error) {
         console.error(`❌ 비디오 렌더링 실패:`, error);
