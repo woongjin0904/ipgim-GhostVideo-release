@@ -41,22 +41,18 @@ jobs:
       - name: 📦 의존성 설치
         run: pnpm install
 
-      - name: 🛡️ 리눅스 보안 해제 및 가상 디스플레이(Xvfb) 세팅
+      - name: 🛡️ 리눅스 보안 해제 및 Xvfb 세팅
         run: |
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
           sudo apt-get update
           sudo apt-get install -y xvfb
 
-      - name: Install Chrome for Puppeteer
+      - name: 🌐 Chrome 설치
         run: npx puppeteer browsers install chrome
-        
-      - name: Fix FFmpeg and FFprobe Permissions
-        run: |
-          find node_modules -name "ffprobe" -type f -exec chmod +x {} \;
-          find node_modules -name "ffmpeg" -type f -exec chmod +x {} \;
 
-      - name: Run Twick Render
-        run: xvfb-run --auto-servernum --server-args="-screen 0 1080x1920x24" node github-render.js
+      - name: 🎬 Run Render Engine (Xvfb)
+        # 디스플레이 번호를 :99로 고정하여 Puppeteer와 매칭시킵니다.
+        run: xvfb-run --server-num=99 --server-args="-screen 0 1080x1920x24" node github-render.js
         env:
           POST_TITLE: ${{ github.event.inputs.title }}
           POST_CONTENT: ${{ github.event.inputs.content }}
@@ -64,17 +60,11 @@ jobs:
           TEMPLATE_NAME: ${{ github.event.inputs.templateName }}
           TEMPLATE_CODE: ${{ github.event.inputs.templateCode }}
 
-      - name: 🚀 완성된 영상 외부로 쏘기
+      - name: 🚀 완성된 영상 업로드
         run: |
-          echo "tmpfiles.org 서버로 영상 업로드 중..."
           RESPONSE=$(curl -s -F "file=@output/final_shorts.mp4" https://tmpfiles.org/api/v1/upload)
           DOWNLOAD_URL=$(echo $RESPONSE | jq -r '.data.url')
-          
-          echo ""
-          echo "======================================================"
-          echo "🎉 렌더링 완벽 성공! 아래 링크를 클릭하여 영상을 다운로드 하세요:"
-          echo "👉 $DOWNLOAD_URL"
-          echo "======================================================"
+          echo "👉 Download URL: $DOWNLOAD_URL"
           
       - name: Upload Video Artifact
         uses: actions/upload-artifact@v4
