@@ -4,19 +4,14 @@ on:
   workflow_dispatch:
     inputs:
       title:
-        description: 'Post Title'
         required: true
       content:
-        description: 'Post Content'
         required: true
       config:
-        description: 'Template Config JSON'
         required: true
       templateName:
-        description: 'Selected Template Name'
         required: true
       templateCode:
-        description: 'Raw Template Code'
         required: true
 
 jobs:
@@ -41,20 +36,27 @@ jobs:
       - name: 📦 의존성 설치
         run: pnpm install
 
-      - name: 🛡️ 리눅스 보안 해제 및 Xvfb 세팅
+      - name: 🛡️ 리눅스 환경 세팅 (Xvfb 및 Chrome)
         run: |
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
           sudo apt-get update
           sudo apt-get install -y xvfb
-
-      # 🔥 [핵심 1] 진짜 Google Chrome 설치 (MP4, H264 코덱 포함)
-      - name: 🌐 진짜 Google Chrome 설치
-        run: |
           wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
           sudo apt-get install -y ./google-chrome-stable_current_amd64.deb
 
+      # 🔥 [가장 핵심] OS 레벨 크롬 하이재킹 스크립트 생성
+      - name: 🛠️ 워커 스레드 우회용 크롬 래퍼 생성
+        run: |
+          echo '#!/bin/bash' > chrome-wrapper.sh
+          # 워커가 크롬을 부를 때 무조건 이 플래그들을 강제 주입하여 실행함
+          echo 'exec /usr/bin/google-chrome --no-sandbox --disable-setuid-sandbox --disable-dev-shm-usage --disable-gpu --disable-accelerated-video-encode --disable-accelerated-video-decode "$@"' >> chrome-wrapper.sh
+          chmod +x chrome-wrapper.sh
+          # Puppeteer가 기본 크롬 대신 이 스크립트를 실행하도록 환경변수 설정
+          echo "PUPPETEER_EXECUTABLE_PATH=$(pwd)/chrome-wrapper.sh" >> $GITHUB_ENV
+
       - name: 🎬 Run Render Engine (Xvfb)
-        run: xvfb-run --server-num=99 --server-args="-screen 0 1080x1920x24" node github-render.js
+        # 워커 내부까지 Xvfb 화면을 전달하기 위해 auto-servernum 사용
+        run: xvfb-run --auto-servernum --server-args="-screen 0 1080x1920x24" node github-render.js
         env:
           POST_TITLE: ${{ github.event.inputs.title }}
           POST_CONTENT: ${{ github.event.inputs.content }}
