@@ -37,14 +37,8 @@ async function runGitHubRender() {
     const configRaw = process.env.POST_CONFIG || "{}";
     const config = JSON.parse(configRaw);
 
-    // 폴더 생성 로직은 그대로 유지하되
-    const outputDir = path.join(__dirname, 'output');
-    if (!fs.existsSync(outputDir)) {
-        fs.mkdirSync(outputDir, { recursive: true });
-    }
-    
-    // 🔥 수정된 부분: 엔진 내부 버그 방지를 위해 상대 경로로 명시합니다.
-    const outputVideoPath = 'output/final_shorts.mp4';
+    // 🔥 엔진 경로 꼬임 버그 방지를 위해 1차적으로는 최상위 경로에 저장하도록 지시
+    const tempVideoName = 'final_shorts.mp4';
     
     const cleanContent = content.replace(/[ \t]+/g, ' ').trim();
 
@@ -55,7 +49,7 @@ async function runGitHubRender() {
     console.log(`[${title}] 렌더링 중... (예상 프레임: ${totalFrames})`);
 
     try {
-        const videoPath = await renderTwickVideo(
+        await renderTwickVideo(
             {
                 input: {
                     entry: path.join(__dirname, 'video', `${templateName}.jsx`),
@@ -74,12 +68,27 @@ async function runGitHubRender() {
                 }
             },
             {
-                outFile: outputVideoPath,
+                outFile: tempVideoName,
                 quality: "high"
             }
         );
 
-        console.log(`✅ 비디오 렌더링 완료! 저장 위치: ${videoPath}`);
+        console.log(`✅ 1차 비디오 렌더링 성공!`);
+
+        // 🔥 렌더링 성공 후 직접 output 폴더를 만들고 파일을 옮겨줍니다. (YAML 호환을 위함)
+        const outputDir = path.join(__dirname, 'output');
+        if (!fs.existsSync(outputDir)) {
+            fs.mkdirSync(outputDir, { recursive: true });
+        }
+        
+        const sourcePath = path.join(__dirname, tempVideoName);
+        const destPath = path.join(outputDir, tempVideoName);
+        
+        // 파일 이동(rename)
+        fs.renameSync(sourcePath, destPath);
+
+        console.log(`📂 최종 파일 이동 완료! 저장 위치: ${destPath}`);
+
     } catch (error) {
         console.error(`❌ 비디오 렌더링 실패:`, error);
         process.exit(1);
