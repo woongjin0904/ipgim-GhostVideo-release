@@ -1,7 +1,8 @@
 const fs = require('fs');
 const path = require('path');
 
-const outputDir = path.join(__dirname, 'output');
+// [FIX 1] 실행 환경에 종속되지 않는 범용적인 절대 경로 보장
+const outputDir = path.resolve(__dirname, 'output');
 if (!fs.existsSync(outputDir)) {
     fs.mkdirSync(outputDir, { recursive: true });
 }
@@ -11,6 +12,7 @@ process.env.REMOTION_PUPPETEER_LOG_LEVEL = 'verbose';
 async function runGitHubRender() {
     const { renderTwickVideo } = await import('@twick/render-server');
 
+    // Base64 디코딩 시 명시적 utf8 처리
     const decodeBase64 = (str) => {
         if (!str) return "";
         return Buffer.from(str, 'base64').toString('utf8');
@@ -19,12 +21,20 @@ async function runGitHubRender() {
     let title = decodeBase64(process.env.POST_TITLE) || "제목 없음";
     let content = decodeBase64(process.env.POST_CONTENT) || "내용 없음";
     
-    // 1. JSON 파싱 에러(SyntaxError) 원천 차단: 제어문자 및 쌍따옴표 완전 정제
-    title = title.replace(/[\r\n\t]+/g, ' ').replace(/["\\]/g, "'").replace(/[\u0000-\u001F\u007F-\u009F]/g, '').trim();
-    content = content.replace(/[\r\n\t]+/g, ' ').replace(/["\\]/g, "'").replace(/[\u0000-\u001F\u007F-\u009F]/g, '').trim();
+    // [FIX 2] 제어문자 정제 오류 수정: 줄바꿈(\n), 탭(\t)은 살리고 시스템 파괴 문자만 제거
+    const safeReplace = (text) => {
+        return text
+            .replace(/[\u0000-\u0008\u000B-\u000C\u000E-\u001F\u007F-\u009F]/g, '') // 널바이트 및 특수 제어문자 컷
+            .replace(/"/g, "'") // JSON.parse 충돌 방지를 위해 쌍따옴표만 홑따옴표로 안전 치환
+            .trim();
+    };
+
+    title = safeReplace(title);
+    content = safeReplace(content);
 
     const templateCode = decodeBase64(process.env.TEMPLATE_CODE);
-    const templatePath = path.join(process.cwd(), 'Template.jsx');
+    // [FIX 3] 템플릿 파일 역시 절대 경로로 고정
+    const templatePath = path.resolve(__dirname, 'Template.jsx');
     
     const typingSpeedMs = 40;
     const charsPerSecond = 1000 / typingSpeedMs;
@@ -32,12 +42,10 @@ async function runGitHubRender() {
     const durationInSeconds = Math.max((contentLen / charsPerSecond) + 2, 5);
     const dynamicDurationInFrames = Math.max(Math.floor(durationInSeconds * 30), 150);
 
-    // 2. 엔진이 0프레임으로 오해하지 않도록 환경 변수에 프레임 수 강제 주입
     process.env.DURATION_IN_FRAMES = dynamicDurationInFrames.toString();
     process.env.VIDEO_DURATION = dynamicDurationInFrames.toString();
 
     if (templateCode) {
-        // 3. 템플릿 파일 자체의 맨 밑바닥에도 프레임 수 강제 각인
         const finalTemplateCode = templateCode + `\n\nexport const durationInFrames = ${dynamicDurationInFrames};\nexport const fps = 30;\nexport const width = 720;\nexport const height = 1280;\n`;
         fs.writeFileSync(templatePath, finalTemplateCode, 'utf8');
     }
@@ -47,6 +55,7 @@ async function runGitHubRender() {
         const decodedConfig = decodeBase64(process.env.POST_CONFIG);
         if (decodedConfig) inputConfig = JSON.parse(decodedConfig);
     } catch (e) {
+        console.error("Config Parsing Error:", e);
     }
 
     try {
@@ -54,9 +63,9 @@ async function runGitHubRender() {
             width: 720,
             height: 1280,
             durationInFrames: dynamicDurationInFrames,
-            frames: dynamicDurationInFrames, // 프레임 인식 보조 안전장치
+            frames: dynamicDurationInFrames,
             fps: 30,
-            concurrency: 4, // 렌더링 속도 대폭 향상
+            concurrency: 4,
             timeoutInMilliseconds: 120000,
             input: {
                 entry: templatePath,
@@ -72,15 +81,13 @@ async function runGitHubRender() {
                     cardBgColor: inputConfig.cardBgColor || "#1a1a24",
                     width: 720,
                     height: 1280,
-                    // 4. Properties 내부에도 모든 형태의 길이 변수 강제 주입
                     durationInFrames: dynamicDurationInFrames,
                     duration: dynamicDurationInFrames,
                     totalDuration: durationInSeconds,
                     fps: 30,
-                    ...inputConfig // 프론트엔드 configData 통째로 주입
+                    ...inputConfig
                 }
             },
-            
             chromiumOptions: {
                 headless: "new",
                 defaultViewport: { width: 720, height: 1280 },
@@ -109,7 +116,8 @@ async function runGitHubRender() {
             }
 
         }, { 
-            outFile: 'final_shorts.mp4', 
+            // [FIX 4] GitHub Actions의 업로드 타겟 경로(output 폴더)와 정확히 일치시킴
+            outFile: path.join(outputDir, 'final_shorts.mp4'), 
             quality: "high"
         });
 
