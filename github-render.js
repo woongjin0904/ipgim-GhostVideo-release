@@ -24,9 +24,7 @@ async function runGitHubRender() {
 
     const templateCode = decodeBase64(process.env.TEMPLATE_CODE);
     
-    const isHtml = templateCode && templateCode.trim().startsWith('<');
-    const templateExt = isHtml ? '.html' : '.jsx';
-    const templatePath = path.join(process.cwd(), `Template.jsx`);
+    const templatePath = path.join(process.cwd(), 'Template.jsx');
     
     if (templateCode) {
         fs.writeFileSync(templatePath, templateCode, 'utf8');
