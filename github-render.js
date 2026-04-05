@@ -19,8 +19,9 @@ async function runGitHubRender() {
     let title = decodeBase64(process.env.POST_TITLE) || "제목 없음";
     let content = decodeBase64(process.env.POST_CONTENT) || "내용 없음";
     
-    title = title.replace(/[\r\n\t]+/g, ' ').replace(/[\u0000-\u001F\u007F-\u009F]/g, '').trim();
-    content = content.replace(/[\r\n\t]+/g, ' ').replace(/[\u0000-\u001F\u007F-\u009F]/g, '').trim();
+    // 🔥 완벽한 JSON 파싱 에러 방지: 모든 제어문자, 쌍따옴표, 백슬래시를 안전하게 제거/치환
+    title = title.replace(/[\r\n\t]+/g, ' ').replace(/["\\]/g, "'").replace(/[\u0000-\u001F\u007F-\u009F]/g, '').trim();
+    content = content.replace(/[\r\n\t]+/g, ' ').replace(/["\\]/g, "'").replace(/[\u0000-\u001F\u007F-\u009F]/g, '').trim();
 
     const templateCode = decodeBase64(process.env.TEMPLATE_CODE);
     
@@ -42,8 +43,6 @@ async function runGitHubRender() {
     const contentLen = content.length > 0 ? content.length : 1; 
     const durationInSeconds = Math.max((contentLen / charsPerSecond) + 2, 5);
     const dynamicDurationInFrames = Math.max(Math.floor(durationInSeconds * 30), 150);
-    
-    const finalOutputDir = path.join(process.cwd(), 'output');
 
     try {
         await renderTwickVideo({
@@ -75,11 +74,11 @@ async function runGitHubRender() {
                 defaultViewport: { width: 720, height: 1280 },
                 args: [
                     '--no-sandbox', 
-                    '--disable-setuid-sandbox',
                     '--disable-dev-shm-usage', 
                     '--window-size=720,1280', 
                     '--force-device-scale-factor=1',
-                    '--use-gl=swiftshader',
+                    '--disable-gpu',
+                    '--disable-software-rasterizer',
                     '--disable-extensions',
                     '--disable-background-timer-throttling'
                 ]
@@ -89,11 +88,11 @@ async function runGitHubRender() {
                 defaultViewport: { width: 720, height: 1280 },
                 args: [
                     '--no-sandbox', 
-                    '--disable-setuid-sandbox',
                     '--disable-dev-shm-usage', 
                     '--window-size=720,1280', 
                     '--force-device-scale-factor=1',
-                    '--use-gl=swiftshader',
+                    '--disable-gpu',
+                    '--disable-software-rasterizer',
                     '--disable-extensions',
                     '--disable-background-timer-throttling'
                 ]
