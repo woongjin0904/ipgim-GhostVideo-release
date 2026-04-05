@@ -41,8 +41,6 @@ async function runGitHubRender() {
     const charsPerSecond = 1000 / typingSpeedMs;
     const contentLen = content.length > 0 ? content.length : 1; 
     const durationInSeconds = Math.max((contentLen / charsPerSecond) + 2, 5);
-    
-    // 프레임 수가 소수점이나 0으로 떨어지지 않도록 정수로 강제 변환 및 최소 150프레임(5초) 보장
     const dynamicDurationInFrames = Math.max(Math.floor(durationInSeconds * 30), 150);
     
     const finalOutputDir = path.join(process.cwd(), 'output');
@@ -55,7 +53,6 @@ async function runGitHubRender() {
             fps: 30,
             concurrency: 4,
             timeoutInMilliseconds: 120000,
-            // 통신 단절을 유발하던 viteConfig(hmr: false) 로직 완전 삭제
             input: {
                 entry: templatePath,
                 width: 720,
@@ -78,11 +75,11 @@ async function runGitHubRender() {
                 defaultViewport: { width: 720, height: 1280 },
                 args: [
                     '--no-sandbox', 
+                    '--disable-setuid-sandbox',
                     '--disable-dev-shm-usage', 
                     '--window-size=720,1280', 
                     '--force-device-scale-factor=1',
-                    '--disable-gpu',
-                    '--disable-software-rasterizer',
+                    '--use-gl=swiftshader',
                     '--disable-extensions',
                     '--disable-background-timer-throttling'
                 ]
@@ -92,11 +89,11 @@ async function runGitHubRender() {
                 defaultViewport: { width: 720, height: 1280 },
                 args: [
                     '--no-sandbox', 
+                    '--disable-setuid-sandbox',
                     '--disable-dev-shm-usage', 
                     '--window-size=720,1280', 
                     '--force-device-scale-factor=1',
-                    '--disable-gpu',
-                    '--disable-software-rasterizer',
+                    '--use-gl=swiftshader',
                     '--disable-extensions',
                     '--disable-background-timer-throttling'
                 ]
