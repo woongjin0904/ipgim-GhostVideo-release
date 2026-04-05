@@ -15,7 +15,10 @@ async function runGitHubRender() {
     const content = (process.env.POST_CONTENT || "").replace(/[ \t]+/g, ' ').trim();
     const templateCode = process.env.TEMPLATE_CODE;
     
-    const templatePath = path.join(__dirname, 'Template.jsx');
+    const isHtml = templateCode && templateCode.trim().startsWith('<');
+    const templateExt = isHtml ? '.html' : '.jsx';
+    const templatePath = path.join(process.cwd(), `Template${templateExt}`);
+    
     if (templateCode) {
         fs.writeFileSync(templatePath, templateCode, 'utf8');
     }
@@ -31,6 +34,8 @@ async function runGitHubRender() {
     const contentLen = content.length > 0 ? content.length : 1; 
     const durationInSeconds = Math.max((contentLen / charsPerSecond) + 2, 5);
     const dynamicDurationInFrames = Math.ceil(durationInSeconds * 30);
+    
+    const finalOutputDir = path.join(process.cwd(), 'output');
 
     try {
         await renderTwickVideo({
@@ -82,7 +87,7 @@ async function runGitHubRender() {
             }
 
         }, { 
-            outFile: 'final_shorts.mp4', 
+            outFile: path.join(finalOutputDir, 'final_shorts.mp4'), 
             quality: "high"
         });
 
