@@ -83,10 +83,9 @@ async function runGitHubRender() {
                     '--disable-dev-shm-usage', 
                     '--window-size=720,1280', 
                     '--force-device-scale-factor=1',
-                    '--disable-gpu',
-                    '--disable-software-rasterizer',
                     '--disable-extensions',
-                    '--disable-background-timer-throttling'
+                    '--disable-background-timer-throttling',
+                    '--use-gl=swiftshader'
                 ]
             },
             puppeteerOptions: {
@@ -97,10 +96,9 @@ async function runGitHubRender() {
                     '--disable-dev-shm-usage', 
                     '--window-size=720,1280', 
                     '--force-device-scale-factor=1',
-                    '--disable-gpu',
-                    '--disable-software-rasterizer',
                     '--disable-extensions',
-                    '--disable-background-timer-throttling'
+                    '--disable-background-timer-throttling',
+                    '--use-gl=swiftshader'
                 ]
             }
 
