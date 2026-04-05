@@ -11,9 +11,14 @@ process.env.REMOTION_PUPPETEER_LOG_LEVEL = 'verbose';
 async function runGitHubRender() {
     const { renderTwickVideo } = await import('@twick/render-server');
 
-    const title = process.env.POST_TITLE || "제목 없음";
-    const content = (process.env.POST_CONTENT || "").replace(/[ \t]+/g, ' ').trim();
-    const templateCode = process.env.TEMPLATE_CODE;
+    const decodeBase64 = (str) => {
+        if (!str) return "";
+        return Buffer.from(str, 'base64').toString('utf8');
+    };
+
+    const title = decodeBase64(process.env.POST_TITLE) || "제목 없음";
+    const content = decodeBase64(process.env.POST_CONTENT).replace(/[ \t]+/g, ' ').trim() || "내용 없음";
+    const templateCode = decodeBase64(process.env.TEMPLATE_CODE);
     
     const isHtml = templateCode && templateCode.trim().startsWith('<');
     const templateExt = isHtml ? '.html' : '.jsx';
@@ -25,7 +30,8 @@ async function runGitHubRender() {
 
     let inputConfig = {};
     try {
-        if (process.env.POST_CONFIG) inputConfig = JSON.parse(process.env.POST_CONFIG);
+        const decodedConfig = decodeBase64(process.env.POST_CONFIG);
+        if (decodedConfig) inputConfig = JSON.parse(decodedConfig);
     } catch (e) {
     }
 
