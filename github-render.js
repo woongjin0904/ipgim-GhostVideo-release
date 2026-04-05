@@ -1,7 +1,6 @@
 const fs = require('fs');
 const path = require('path');
 
-// 1. 출력 폴더 보장 (경로 에러 방지)
 const outputDir = path.join(__dirname, 'output');
 if (!fs.existsSync(outputDir)) {
     fs.mkdirSync(outputDir, { recursive: true });
@@ -29,7 +28,8 @@ async function runGitHubRender() {
 
     const typingSpeedMs = 40;
     const charsPerSecond = 1000 / typingSpeedMs;
-    const durationInSeconds = Math.max((content.length / charsPerSecond) + 2, 5);
+    const contentLen = content.length > 0 ? content.length : 1; 
+    const durationInSeconds = Math.max((contentLen / charsPerSecond) + 2, 5);
     const dynamicDurationInFrames = Math.ceil(durationInSeconds * 30);
 
     try {
@@ -63,7 +63,9 @@ async function runGitHubRender() {
                     '--no-sandbox', 
                     '--disable-dev-shm-usage', 
                     '--window-size=720,1280', 
-                    '--force-device-scale-factor=1'
+                    '--force-device-scale-factor=1',
+                    '--disable-gpu',
+                    '--disable-software-rasterizer'
                 ]
             },
             puppeteerOptions: {
@@ -73,7 +75,9 @@ async function runGitHubRender() {
                     '--no-sandbox', 
                     '--disable-dev-shm-usage', 
                     '--window-size=720,1280', 
-                    '--force-device-scale-factor=1'
+                    '--force-device-scale-factor=1',
+                    '--disable-gpu',
+                    '--disable-software-rasterizer'
                 ]
             }
 
@@ -83,6 +87,7 @@ async function runGitHubRender() {
         });
 
     } catch (error) {
+        console.error("Render Error:", error);
         process.exit(1);
     }
 }
