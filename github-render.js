@@ -19,21 +19,25 @@ async function runGitHubRender() {
     let title = decodeBase64(process.env.POST_TITLE) || "제목 없음";
     let content = decodeBase64(process.env.POST_CONTENT) || "내용 없음";
     
-    // 1. JSON 파싱 에러 방지용 정제 (쌍따옴표, 백슬래시, 제어문자 완벽 제거)
+    // 1. JSON 파싱 에러(SyntaxError) 원천 차단: 제어문자 및 쌍따옴표 완전 정제
     title = title.replace(/[\r\n\t]+/g, ' ').replace(/["\\]/g, "'").replace(/[\u0000-\u001F\u007F-\u009F]/g, '').trim();
     content = content.replace(/[\r\n\t]+/g, ' ').replace(/["\\]/g, "'").replace(/[\u0000-\u001F\u007F-\u009F]/g, '').trim();
 
     const templateCode = decodeBase64(process.env.TEMPLATE_CODE);
     const templatePath = path.join(process.cwd(), 'Template.jsx');
-
+    
     const typingSpeedMs = 40;
     const charsPerSecond = 1000 / typingSpeedMs;
     const contentLen = content.length > 0 ? content.length : 1; 
     const durationInSeconds = Math.max((contentLen / charsPerSecond) + 2, 5);
     const dynamicDurationInFrames = Math.max(Math.floor(durationInSeconds * 30), 150);
 
-    // 2. 🔥 핵심 해결책: Twick 엔진이 0프레임으로 오해하지 않도록 템플릿 맨 밑에 변수 강제 주입
+    // 2. 엔진이 0프레임으로 오해하지 않도록 환경 변수에 프레임 수 강제 주입
+    process.env.DURATION_IN_FRAMES = dynamicDurationInFrames.toString();
+    process.env.VIDEO_DURATION = dynamicDurationInFrames.toString();
+
     if (templateCode) {
+        // 3. 템플릿 파일 자체의 맨 밑바닥에도 프레임 수 강제 각인
         const finalTemplateCode = templateCode + `\n\nexport const durationInFrames = ${dynamicDurationInFrames};\nexport const fps = 30;\nexport const width = 720;\nexport const height = 1280;\n`;
         fs.writeFileSync(templatePath, finalTemplateCode, 'utf8');
     }
@@ -50,8 +54,9 @@ async function runGitHubRender() {
             width: 720,
             height: 1280,
             durationInFrames: dynamicDurationInFrames,
+            frames: dynamicDurationInFrames, // 프레임 인식 보조 안전장치
             fps: 30,
-            concurrency: 4,
+            concurrency: 4, // 렌더링 속도 대폭 향상
             timeoutInMilliseconds: 120000,
             input: {
                 entry: templatePath,
@@ -67,8 +72,12 @@ async function runGitHubRender() {
                     cardBgColor: inputConfig.cardBgColor || "#1a1a24",
                     width: 720,
                     height: 1280,
+                    // 4. Properties 내부에도 모든 형태의 길이 변수 강제 주입
                     durationInFrames: dynamicDurationInFrames,
-                    fps: 30
+                    duration: dynamicDurationInFrames,
+                    totalDuration: durationInSeconds,
+                    fps: 30,
+                    ...inputConfig // 프론트엔드 configData 통째로 주입
                 }
             },
             
@@ -81,7 +90,6 @@ async function runGitHubRender() {
                     '--disable-dev-shm-usage', 
                     '--window-size=720,1280', 
                     '--force-device-scale-factor=1',
-                    '--use-gl=swiftshader',
                     '--disable-extensions',
                     '--disable-background-timer-throttling'
                 ]
@@ -95,7 +103,6 @@ async function runGitHubRender() {
                     '--disable-dev-shm-usage', 
                     '--window-size=720,1280', 
                     '--force-device-scale-factor=1',
-                    '--use-gl=swiftshader',
                     '--disable-extensions',
                     '--disable-background-timer-throttling'
                 ]
