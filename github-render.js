@@ -34,8 +34,6 @@ async function runGitHubRender() {
     const contentLen = content.length > 0 ? content.length : 1; 
     const durationInSeconds = Math.max((contentLen / charsPerSecond) + 2, 5);
     const dynamicDurationInFrames = Math.ceil(durationInSeconds * 30);
-    
-    const finalOutputDir = path.join(process.cwd(), 'output');
 
     try {
         await renderTwickVideo({
@@ -87,7 +85,7 @@ async function runGitHubRender() {
             }
 
         }, { 
-            outFile: path.join(finalOutputDir, 'final_shorts.mp4'), 
+            outFile: 'output/final_shorts.mp4', 
             quality: "high"
         });
 
