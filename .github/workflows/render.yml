@@ -56,16 +56,15 @@ jobs:
           find node_modules -name "ffmpeg" -type f -exec chmod +x {} \;
 
       - name: Run Twick Render
-        # 💡 Xvfb 서버 해상도를 720x1280으로 하향 조정하여 리소스 최적화
         run: xvfb-run --auto-servernum --server-args="-screen 0 720x1280x24 -ac" node github-render.js
         env:
           DEBUG: 'puppeteer:*'
           REMOTION_PUPPETEER_LOG_LEVEL: 'verbose'
-          POST_TITLE: ${{ github.event.inputs.title }}
-          POST_CONTENT: ${{ github.event.inputs.content }}
-          POST_CONFIG: ${{ github.event.inputs.config }}
-          TEMPLATE_NAME: ${{ github.event.inputs.templateName }}
-          TEMPLATE_CODE: ${{ github.event.inputs.templateCode }}
+          POST_TITLE: ${{ inputs.title }}
+          POST_CONTENT: ${{ inputs.content }}
+          POST_CONFIG: ${{ inputs.config }}
+          TEMPLATE_NAME: ${{ inputs.templateName }}
+          TEMPLATE_CODE: ${{ inputs.templateCode }}
 
       - name: 🚀 완성된 영상 외부로 쏘기
         run: |
