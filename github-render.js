@@ -16,13 +16,17 @@ async function runGitHubRender() {
         return Buffer.from(str, 'base64').toString('utf8');
     };
 
-    const title = decodeBase64(process.env.POST_TITLE) || "제목 없음";
-    const content = decodeBase64(process.env.POST_CONTENT).replace(/[ \t]+/g, ' ').trim() || "내용 없음";
+    let title = decodeBase64(process.env.POST_TITLE) || "제목 없음";
+    let content = decodeBase64(process.env.POST_CONTENT) || "내용 없음";
+    
+    title = title.replace(/[\r\n\t]+/g, ' ').replace(/[\u0000-\u001F\u007F-\u009F]/g, '').trim();
+    content = content.replace(/[\r\n\t]+/g, ' ').replace(/[\u0000-\u001F\u007F-\u009F]/g, '').trim();
+
     const templateCode = decodeBase64(process.env.TEMPLATE_CODE);
     
     const isHtml = templateCode && templateCode.trim().startsWith('<');
     const templateExt = isHtml ? '.html' : '.jsx';
-    const templatePath = path.join(process.cwd(), `Template${templateExt}`);
+    const templatePath = path.join(process.cwd(), `Template.jsx`);
     
     if (templateCode) {
         fs.writeFileSync(templatePath, templateCode, 'utf8');
@@ -42,15 +46,20 @@ async function runGitHubRender() {
     const dynamicDurationInFrames = Math.ceil(durationInSeconds * 30);
     
     const finalOutputDir = path.join(process.cwd(), 'output');
-try {
+
+    try {
         await renderTwickVideo({
             width: 720,
             height: 1280,
             durationInFrames: dynamicDurationInFrames,
             fps: 30,
-            concurrency: 8, // GitHub Actions CPU 코어 수에 맞춰 병렬 렌더링 (속도 3~4배 증가)
-            timeoutInMilliseconds: 120000, // 2분 내에 렌더링 시작 안 하면 무한대기 끊기
-            
+            concurrency: 4,
+            timeoutInMilliseconds: 120000,
+            viteConfig: {
+                server: {
+                    hmr: false
+                }
+            },
             input: {
                 entry: templatePath,
                 width: 720,
@@ -78,7 +87,7 @@ try {
                     '--force-device-scale-factor=1',
                     '--disable-gpu',
                     '--disable-software-rasterizer',
-                    '--disable-extensions', // 불필요한 크롬 기능 꺼서 메모리 확보
+                    '--disable-extensions',
                     '--disable-background-timer-throttling'
                 ]
             },
@@ -99,7 +108,7 @@ try {
 
         }, { 
             outFile: 'final_shorts.mp4', 
-            quality: "medium" // 속도를 더 원하면 "medium"으로 타협 가능
+            quality: "high"
         });
 
     } catch (error) {
