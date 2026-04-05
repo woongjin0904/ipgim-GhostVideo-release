@@ -42,13 +42,14 @@ async function runGitHubRender() {
     const dynamicDurationInFrames = Math.ceil(durationInSeconds * 30);
     
     const finalOutputDir = path.join(process.cwd(), 'output');
-
-    try {
+try {
         await renderTwickVideo({
             width: 720,
             height: 1280,
             durationInFrames: dynamicDurationInFrames,
             fps: 30,
+            concurrency: 4, // GitHub Actions CPU 코어 수에 맞춰 병렬 렌더링 (속도 3~4배 증가)
+            timeoutInMilliseconds: 120000, // 2분 내에 렌더링 시작 안 하면 무한대기 끊기
             
             input: {
                 entry: templatePath,
@@ -76,7 +77,9 @@ async function runGitHubRender() {
                     '--window-size=720,1280', 
                     '--force-device-scale-factor=1',
                     '--disable-gpu',
-                    '--disable-software-rasterizer'
+                    '--disable-software-rasterizer',
+                    '--disable-extensions', // 불필요한 크롬 기능 꺼서 메모리 확보
+                    '--disable-background-timer-throttling'
                 ]
             },
             puppeteerOptions: {
@@ -88,13 +91,15 @@ async function runGitHubRender() {
                     '--window-size=720,1280', 
                     '--force-device-scale-factor=1',
                     '--disable-gpu',
-                    '--disable-software-rasterizer'
+                    '--disable-software-rasterizer',
+                    '--disable-extensions',
+                    '--disable-background-timer-throttling'
                 ]
             }
 
         }, { 
             outFile: 'final_shorts.mp4', 
-            quality: "high"
+            quality: "medium" // 속도를 더 원하면 "medium"으로 타협 가능
         });
 
     } catch (error) {

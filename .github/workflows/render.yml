@@ -58,6 +58,7 @@ jobs:
       - name: Run Twick Render
         run: xvfb-run --auto-servernum --server-args="-screen 0 720x1280x24 -ac" node github-render.js
         env:
+          NODE_ENV: 'production'
           DEBUG: 'puppeteer:*'
           REMOTION_PUPPETEER_LOG_LEVEL: 'verbose'
           POST_TITLE: ${{ inputs.title }}
