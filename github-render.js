@@ -77,11 +77,24 @@ export const RemotionRoot = () => {
     `;
     fs.writeFileSync(rootPath, rootCode, 'utf8');
 
-    // 4. Remotion Entry 등록 파일 생성
+    // 4. [핵심] Remotion Entry 등록 파일 생성 - 글로벌 폰트(Pretendard 강제화)
     const entryPath = path.resolve(__dirname, 'index.js');
     const entryCode = `
 import { registerRoot } from 'remotion';
 import { RemotionRoot } from './Root';
+
+// 💡 폰트 강제 주입: 웹 폰트를 로드하고, 모든 요소에 Pretendard 및 Noto 다국어 폰트를 기본 폴백으로 지정
+const fontCSS = \`
+    @import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.8/dist/web/static/pretendard.css");
+    * {
+        font-family: 'Pretendard', 'Noto Sans CJK KR', 'Noto Color Emoji', sans-serif !important;
+    }
+\`;
+const styleSheet = document.createElement("style");
+styleSheet.type = "text/css";
+styleSheet.innerText = fontCSS;
+document.head.appendChild(styleSheet);
+
 registerRoot(RemotionRoot);
     `;
     fs.writeFileSync(entryPath, entryCode, 'utf8');
@@ -110,10 +123,8 @@ registerRoot(RemotionRoot);
             id: 'MainVideo',
             inputProps,
         });
-console.log(`[INFO] 렌더링 시작...`);
 
-        // 💡 터미널 도배를 막기 위한 변수 설정
-        let lastPrintedPercent = -1;
+        console.log(`[INFO] 렌더링 시작...`);
 
         // 7. 비디오 추출
         const finalOutput = path.join(outputDir, 'final_shorts.mp4');
@@ -125,17 +136,8 @@ console.log(`[INFO] 렌더링 시작...`);
             inputProps,
             chromiumOptions: {
                 gl: 'angle', // 리눅스 환경 필수 옵션
-                args: ['--no-sandbox', '--disable-setuid-sandbox']
-            },
-            // 🔥 진행 상황을 감지하는 콜백 함수 추가
-            onProgress: ({ renderedDoneInPercentage, encodedDoneInPercentage }) => {
-                const renderPercent = Math.floor(renderedDoneInPercentage * 100);
-                
-                // 10% 단위로 떨어질 때만 콘솔에 출력 (예: 10%, 20%, ... 100%)
-                if (renderPercent % 10 === 0 && renderPercent !== lastPrintedPercent) {
-                    console.log(`⏳ [진행 상황] 프레임 렌더링: ${renderPercent}% 완료`);
-                    lastPrintedPercent = renderPercent;
-                }
+                // 💡 폰트 렌더링을 매끄럽게 만들기 위해 캐시 및 샌드박스 옵션 추가
+                args: ['--no-sandbox', '--disable-setuid-sandbox', '--font-render-hinting=none']
             }
         });
 
