@@ -48,37 +48,15 @@ jobs:
           sudo apt-get install -y xvfb
           sudo apt-get install -y libgbm-dev
 
-<<<<<<< HEAD
       - name: Run Remotion Render
-=======
-      - name: Install Chrome for Puppeteer
-        run: npx puppeteer browsers install chrome
-        
-      - name: Fix FFmpeg and FFprobe Permissions
-        run: |
-          find node_modules -name "ffprobe" -type f -exec chmod +x {} \;
-          find node_modules -name "ffmpeg" -type f -exec chmod +x {} \;
-
-      - name: Run Twick Render
->>>>>>> 4754dde82ac23016b26e357705e195ec51a23879
         run: xvfb-run --auto-servernum --server-args="-screen 0 720x1280x24 -ac" node github-render.js
         env:
-          NODE_ENV: 'production'
           DEBUG: 'puppeteer:*'
-<<<<<<< HEAD
           POST_TITLE: ${{ github.event.inputs.title }}
           POST_CONTENT: ${{ github.event.inputs.content }}
           POST_CONFIG: ${{ github.event.inputs.config }}
           TEMPLATE_NAME: ${{ github.event.inputs.templateName }}
           TEMPLATE_CODE: ${{ github.event.inputs.templateCode }}
-=======
-          REMOTION_PUPPETEER_LOG_LEVEL: 'verbose'
-          POST_TITLE: ${{ inputs.title }}
-          POST_CONTENT: ${{ inputs.content }}
-          POST_CONFIG: ${{ inputs.config }}
-          TEMPLATE_NAME: ${{ inputs.templateName }}
-          TEMPLATE_CODE: ${{ inputs.templateCode }}
->>>>>>> 4754dde82ac23016b26e357705e195ec51a23879
 
       - name: 🚀 완성된 영상 외부로 쏘기
         run: |
