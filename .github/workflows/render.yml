@@ -1,4 +1,4 @@
-name: 🎬 Twick Video Renderer
+name: 🎬 Remotion Video Renderer
 
 on:
   workflow_dispatch:
@@ -46,21 +46,12 @@ jobs:
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
           sudo apt-get update
           sudo apt-get install -y xvfb
+          sudo apt-get install -y libgbm-dev
 
-      - name: Install Chrome for Puppeteer
-        run: npx puppeteer browsers install chrome
-        
-      - name: Fix FFmpeg and FFprobe Permissions
-        run: |
-          find node_modules -name "ffprobe" -type f -exec chmod +x {} \;
-          find node_modules -name "ffmpeg" -type f -exec chmod +x {} \;
-
-      - name: Run Twick Render
-        # 💡 Xvfb 서버 해상도를 720x1280으로 하향 조정하여 리소스 최적화
+      - name: Run Remotion Render
         run: xvfb-run --auto-servernum --server-args="-screen 0 720x1280x24 -ac" node github-render.js
         env:
           DEBUG: 'puppeteer:*'
-          REMOTION_PUPPETEER_LOG_LEVEL: 'verbose'
           POST_TITLE: ${{ github.event.inputs.title }}
           POST_CONTENT: ${{ github.event.inputs.content }}
           POST_CONFIG: ${{ github.event.inputs.config }}
