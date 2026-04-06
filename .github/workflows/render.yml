@@ -71,7 +71,7 @@ jobs:
           echo "======================================================"
           
       - name: Upload Video Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: rendered-video
           path: output/final_shorts.mp4
