@@ -77,11 +77,24 @@ export const RemotionRoot = () => {
     `;
     fs.writeFileSync(rootPath, rootCode, 'utf8');
 
-    // 4. Remotion Entry 등록 파일 생성
+    // 4. [핵심] Remotion Entry 등록 파일 생성 - 글로벌 폰트(Pretendard 강제화)
     const entryPath = path.resolve(__dirname, 'index.js');
     const entryCode = `
 import { registerRoot } from 'remotion';
 import { RemotionRoot } from './Root';
+
+// 💡 폰트 강제 주입: 웹 폰트를 로드하고, 모든 요소에 Pretendard 및 Noto 다국어 폰트를 기본 폴백으로 지정
+const fontCSS = \`
+    @import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.8/dist/web/static/pretendard.css");
+    * {
+        font-family: 'Pretendard', 'Noto Sans CJK KR', 'Noto Color Emoji', sans-serif !important;
+    }
+\`;
+const styleSheet = document.createElement("style");
+styleSheet.type = "text/css";
+styleSheet.innerText = fontCSS;
+document.head.appendChild(styleSheet);
+
 registerRoot(RemotionRoot);
     `;
     fs.writeFileSync(entryPath, entryCode, 'utf8');
@@ -123,7 +136,8 @@ registerRoot(RemotionRoot);
             inputProps,
             chromiumOptions: {
                 gl: 'angle', // 리눅스 환경 필수 옵션
-                args: ['--no-sandbox', '--disable-setuid-sandbox']
+                // 💡 폰트 렌더링을 매끄럽게 만들기 위해 캐시 및 샌드박스 옵션 추가
+                args: ['--no-sandbox', '--disable-setuid-sandbox', '--font-render-hinting=none']
             }
         });
 
