@@ -58,57 +58,55 @@ async function runGitHubRender() {
     // 3. Remotion Root 설정 파일 동적 생성
     const rootPath = path.resolve(__dirname, 'Root.jsx');
     const rootCode = `
-import React from 'react';
-import { Composition } from 'remotion';
-import Template from './Template';
+        import React from 'react';
+        import { Composition } from 'remotion';
+        import Template from './Template';
 
-export const RemotionRoot = () => {
-    return (
-        <Composition
-            id="MainVideo"
-            component={Template}
-            durationInFrames={${dynamicDurationInFrames}}
-            fps={30}
-            width={720}
-            height={1280}
-        />
-    );
-};
+        export const RemotionRoot = () => {
+            return (
+                <Composition
+                    id="MainVideo"
+                    component={Template}
+                    durationInFrames={${dynamicDurationInFrames}}
+                    fps={30}
+                    width={1080}
+                    height={1920}
+                />
+            );
+        };
     `;
     fs.writeFileSync(rootPath, rootCode, 'utf8');
 
     // 4. [핵심] Remotion Entry 등록 파일 생성 - 글로벌 폰트(Pretendard 강제화)
     const entryPath = path.resolve(__dirname, 'index.js');
     const entryCode = `
-import { registerRoot } from 'remotion';
-import { RemotionRoot } from './Root';
+        import { registerRoot } from 'remotion';
+        import { RemotionRoot } from './Root';
 
-// 💡 폰트 강제 주입: 웹 폰트를 로드하고, 모든 요소에 Pretendard 및 Noto 다국어 폰트를 기본 폴백으로 지정
-const fontCSS = \`
-    @import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.8/dist/web/static/pretendard.css");
-    * {
-        font-family: 'Pretendard', 'Noto Sans CJK KR', 'Noto Color Emoji', sans-serif !important;
-    }
-\`;
-const styleSheet = document.createElement("style");
-styleSheet.type = "text/css";
-styleSheet.innerText = fontCSS;
-document.head.appendChild(styleSheet);
+        // 💡 폰트 강제 주입: 웹 폰트를 로드하고, 모든 요소에 Pretendard 및 Noto 다국어 폰트를 기본 폴백으로 지정
+        const fontCSS = \`
+            @import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.8/dist/web/static/pretendard.css");
+            * {
+                font-family: 'Pretendard', 'Noto Sans CJK KR', 'Noto Color Emoji', sans-serif !important;
+            }
+        \`;
+        const styleSheet = document.createElement("style");
+        styleSheet.type = "text/css";
+        styleSheet.innerText = fontCSS;
+        document.head.appendChild(styleSheet);
 
-registerRoot(RemotionRoot);
+        registerRoot(RemotionRoot);
     `;
     fs.writeFileSync(entryPath, entryCode, 'utf8');
 
     console.log(`[INFO] 번들링 시작 (Frames: ${dynamicDurationInFrames})...`);
 
     try {
-        // 5. Webpack 번들링 수행
         const bundleLocation = await bundle({
             entryPoint: entryPath,
             webpackOverride: (config) => config,
         });
 
-        // 6. 프롭스 세팅 및 컴포지션 선택
         const inputProps = {
             postTitle: title,
             postContent: content,
@@ -126,7 +124,6 @@ registerRoot(RemotionRoot);
 
         console.log(`[INFO] 렌더링 시작...`);
 
-        // 7. 비디오 추출
         const finalOutput = path.join(outputDir, 'final_shorts.mp4');
         await renderMedia({
             composition,
@@ -135,9 +132,11 @@ registerRoot(RemotionRoot);
             outputLocation: finalOutput,
             inputProps,
             chromiumOptions: {
-                gl: 'angle', // 리눅스 환경 필수 옵션
-                // 💡 폰트 렌더링을 매끄럽게 만들기 위해 캐시 및 샌드박스 옵션 추가
+                gl: 'angle',
                 args: ['--no-sandbox', '--disable-setuid-sandbox', '--font-render-hinting=none']
+            },
+            onProgress: ({ renderedFrames, encodedFrames, renderedDoneIn }) => {
+                console.log(`[DEBUG] 렌더링 진행 상황 - 렌더링된 프레임: ${renderedFrames} / 인코딩된 프레임: ${encodedFrames} (진행 시간: ${renderedDoneIn ?? 0}ms)`);
             }
         });
 
