@@ -52,8 +52,7 @@ async function runGitHubRender() {
     const typingSpeedMs = 40;
     const charsPerSecond = 1000 / typingSpeedMs;
     const contentLen = content.length > 0 ? content.length : 1; 
-    const durationInSeconds = Math.max((contentLen / charsPerSecond) + 2, 5);
-    const dynamicDurationInFrames = Math.max(Math.floor(durationInSeconds * 30), 150);
+    const dynamicDurationInFrames = inputConfig.durationInFrames || 150;
 
     // 3. Remotion Root 설정 파일 동적 생성
     const rootPath = path.resolve(__dirname, 'Root.jsx');
