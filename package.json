@@ -10,7 +10,10 @@
   "dependencies": {
     "@remotion/bundler": "^4.0.0",
     "@remotion/renderer": "^4.0.0",
+    "@twick/core": "^0.15.27",
     "@twick/render-server": "^0.15.27",
+    "@twick/renderer": "^0.15.27",
+    "@twick/visualizer": "^0.15.27",
     "cheerio": "^1.2.0",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",

@@ -14,7 +14,16 @@ importers:
       '@remotion/renderer':
         specifier: ^4.0.0
         version: 4.0.445(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@twick/core':
+        specifier: ^0.15.27
+        version: 0.15.27
       '@twick/render-server':
+        specifier: ^0.15.27
+        version: 0.15.27(@types/node@25.5.2)(terser@5.46.1)
+      '@twick/renderer':
+        specifier: ^0.15.27
+        version: 0.15.27(@types/node@25.5.2)(terser@5.46.1)
+      '@twick/visualizer':
         specifier: ^0.15.27
         version: 0.15.27(@types/node@25.5.2)(terser@5.46.1)
       cheerio:
