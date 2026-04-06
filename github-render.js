@@ -7,7 +7,8 @@ try { puppeteer = require('puppeteer-core'); } catch(e) { puppeteer = require('p
 const originalLaunch = puppeteer.launch;
 puppeteer.launch = async function(options) {
     const safeArgs = (options?.args || []).filter(arg => !arg.includes('--headless'));
-    return originalLaunch.call(puppeteer, {
+    
+    const browser = await originalLaunch.call(puppeteer, {
         ...options,
         headless: "new", 
         defaultViewport: { width: 1080, height: 1920 },
@@ -17,9 +18,45 @@ puppeteer.launch = async function(options) {
             '--disable-setuid-sandbox', 
             '--disable-dev-shm-usage', 
             '--window-size=1080,1920', 
-            '--autoplay-policy=no-user-gesture-required' 
+            '--autoplay-policy=no-user-gesture-required',
+            // 🔥 1. 크롬 자체 팝업 차단 강제 활성화
+            '--disable-popup-blocking=false', 
+            '--block-new-web-contents'
         ]
     });
+
+    // 🔥 2. 새 탭(팝업 광고) 감지 및 즉시 종료 전역 이벤트
+    browser.on('targetcreated', async (target) => {
+        if (target.type() === 'page') {
+            const newPage = await target.page();
+            const opener = await target.opener();
+            
+            // 부모 창에서 파생된 새 탭(대부분 다운로드 버튼 클릭 시 열리는 악성 팝업) 즉시 닫기
+            if (opener && newPage) {
+                console.log("🚫 [광고 차단] 예상치 못한 팝업이 감지되어 즉시 닫습니다.");
+                try { await newPage.close(); } catch (e) {}
+                return;
+            }
+
+            // 🔥 3. 메인 페이지의 악성 광고 네트워크 리소스 원천 차단 (선택)
+            if (newPage) {
+                try {
+                    await newPage.setRequestInterception(true);
+                    newPage.on('request', (req) => {
+                        const url = req.url().toLowerCase();
+                        // 팝업, 광고 도메인이 포함된 요청은 차단 (필요에 따라 도메인 추가)
+                        if (url.includes('googleads') || url.includes('doubleclick') || url.includes('adsystem') || url.includes('popunder')) {
+                            req.abort();
+                        } else {
+                            req.continue();
+                        }
+                    });
+                } catch (e) {}
+            }
+        }
+    });
+
+    return browser;
 };
 
 async function runGitHubRender() {
