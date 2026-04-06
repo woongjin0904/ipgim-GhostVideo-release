@@ -110,8 +110,10 @@ registerRoot(RemotionRoot);
             id: 'MainVideo',
             inputProps,
         });
+console.log(`[INFO] 렌더링 시작...`);
 
-        console.log(`[INFO] 렌더링 시작...`);
+        // 💡 터미널 도배를 막기 위한 변수 설정
+        let lastPrintedPercent = -1;
 
         // 7. 비디오 추출
         const finalOutput = path.join(outputDir, 'final_shorts.mp4');
@@ -124,6 +126,16 @@ registerRoot(RemotionRoot);
             chromiumOptions: {
                 gl: 'angle', // 리눅스 환경 필수 옵션
                 args: ['--no-sandbox', '--disable-setuid-sandbox']
+            },
+            // 🔥 진행 상황을 감지하는 콜백 함수 추가
+            onProgress: ({ renderedDoneInPercentage, encodedDoneInPercentage }) => {
+                const renderPercent = Math.floor(renderedDoneInPercentage * 100);
+                
+                // 10% 단위로 떨어질 때만 콘솔에 출력 (예: 10%, 20%, ... 100%)
+                if (renderPercent % 10 === 0 && renderPercent !== lastPrintedPercent) {
+                    console.log(`⏳ [진행 상황] 프레임 렌더링: ${renderPercent}% 완료`);
+                    lastPrintedPercent = renderPercent;
+                }
             }
         });
 
