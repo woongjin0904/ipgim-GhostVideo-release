@@ -41,14 +41,12 @@ jobs:
       - name: 📦 의존성 설치
         run: pnpm install
 
-      - name: 🛡️ 리눅스 보안 해제 및 Xvfb / 다국어 폰트 세팅
+      - name: 🛡️ 리눅스 보안 해제 및 가상 디스플레이(Xvfb) 세팅
         run: |
           sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
           sudo apt-get update
-          # 💡 Xvfb 및 한글, 일본어, 중국어, 이모지 처리를 위한 필수 폰트 설치 (네모 깨짐 완벽 방지)
-          sudo apt-get install -y xvfb libgbm-dev fonts-noto-cjk fonts-noto-color-emoji fonts-nanum fontconfig
-          # 💡 폰트 캐시 갱신
-          fc-cache -fv
+          sudo apt-get install -y xvfb
+          sudo apt-get install -y libgbm-dev
 
       - name: Run Remotion Render
         run: xvfb-run --auto-servernum --server-args="-screen 0 720x1280x24 -ac" node github-render.js
