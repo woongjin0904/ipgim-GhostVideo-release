@@ -4,6 +4,28 @@ const path = require('path');
 let puppeteer;
 try { puppeteer = require('puppeteer-core'); } catch(e) { puppeteer = require('puppeteer'); }
 
+// [적용됨] 💡 방어 전략: 제어문자 및 따옴표 정제 (하단 코드 반영)
+const safeReplace = (text) => {
+    if (!text) return "";
+    return text
+        .replace(/[\u0000-\u0008\u000B-\u000C\u000E-\u001F\u007F-\u009F]/g, '')
+        .replace(/"/g, "'")
+        .trim();
+};
+
+// [적용됨] Base64 디코딩 헬퍼 (평문 텍스트와의 호환성을 고려한 안전한 디코딩)
+const decodeBase64Safe = (str) => {
+    if (!str) return "";
+    try {
+        // 평문이 섞여있을 수 있으므로 정규식으로 Base64 형식인지 간단히 검사
+        const isBase64 = /^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{2}==)?$/.test(str.trim());
+        if (isBase64) {
+            return Buffer.from(str, 'base64').toString('utf8');
+        }
+    } catch (e) {}
+    return str;
+};
+
 const originalLaunch = puppeteer.launch;
 puppeteer.launch = async function(options) {
     const safeArgs = (options?.args || []).filter(arg => !arg.includes('--headless'));
@@ -21,7 +43,10 @@ puppeteer.launch = async function(options) {
             '--autoplay-policy=no-user-gesture-required',
             // 🔥 1. 크롬 자체 팝업 차단 강제 활성화
             '--disable-popup-blocking=false', 
-            '--block-new-web-contents'
+            '--block-new-web-contents',
+            // [적용됨] 💡 리눅스 환경 대응 및 폰트 렌더링 최적화 옵션 추가 (하단 코드 반영)
+            '--use-gl=angle', 
+            '--font-render-hinting=none'
         ]
     });
 
@@ -44,13 +69,31 @@ puppeteer.launch = async function(options) {
                     await newPage.setRequestInterception(true);
                     newPage.on('request', (req) => {
                         const url = req.url().toLowerCase();
-                        // 팝업, 광고 도메인이 포함된 요청은 차단 (필요에 따라 도메인 추가)
+                        // 팝업, 광고 도메인이 포함된 요청은 차단
                         if (url.includes('googleads') || url.includes('doubleclick') || url.includes('adsystem') || url.includes('popunder')) {
                             req.abort();
                         } else {
                             req.continue();
                         }
                     });
+
+                    // [적용됨] 💡 글로벌 폰트(Pretendard 및 다국어) 강제 주입 (하단 코드 반영)
+                    // 생성되는 모든 페이지에 강제로 웹 폰트를 로드하고 적용합니다.
+                    await newPage.evaluateOnNewDocument(() => {
+                        const fontCSS = `
+                            @import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.8/dist/web/static/pretendard.css");
+                            * {
+                                font-family: 'Pretendard', 'Noto Sans CJK KR', 'Noto Color Emoji', sans-serif !important;
+                            }
+                        `;
+                        document.addEventListener("DOMContentLoaded", () => {
+                            const styleSheet = document.createElement("style");
+                            styleSheet.type = "text/css";
+                            styleSheet.innerText = fontCSS;
+                            document.head.appendChild(styleSheet);
+                        });
+                    });
+
                 } catch (e) {}
             }
         }
@@ -64,22 +107,25 @@ async function runGitHubRender() {
 
     const { renderTwickVideo } = await import('@twick/render-server');
 
-    const title = process.env.POST_TITLE || "제목 없음";
-    const content = process.env.POST_CONTENT || "내용이 없습니다.";
-    const templateCode = process.env.TEMPLATE_CODE; 
+    // [적용됨] 모든 Env 변수에 대한 Base64 디코딩 시도 및 제어문자 방어
+    let title = decodeBase64Safe(process.env.POST_TITLE) || "제목 없음";
+    let content = decodeBase64Safe(process.env.POST_CONTENT) || "내용이 없습니다.";
+    
+    title = safeReplace(title);
+    content = safeReplace(content);
+
+    const templateCode = decodeBase64Safe(process.env.TEMPLATE_CODE); 
     let config = {};
     const rawConfig = process.env.POST_CONFIG || "{}";
 
     try {
-        // 1. 일반 JSON 텍스트일 경우를 대비해 먼저 파싱 시도 (로컬 환경 대응)
         config = JSON.parse(rawConfig);
     } catch (e) {
-        // 2. 일반 파싱 실패 시, Base64로 인코딩된 문자열이라 가정하고 디코딩 후 파싱 (GitHub Actions 대응)
         try {
-            const decodedConfig = Buffer.from(rawConfig, 'base64').toString('utf8');
+            const decodedConfig = decodeBase64Safe(rawConfig) || Buffer.from(rawConfig, 'base64').toString('utf8');
             config = JSON.parse(decodedConfig);
         } catch (decodeErr) {
-            console.error("❌ POST_CONFIG JSON 파싱 실패. 빈 객체로 초기화합니다.", decodeErr);
+            console.warn("⚠️ POST_CONFIG 파싱 실패, 빈 객체 또는 기본 UI 설정을 사용합니다.", decodeErr);
             config = {};
         }
     }
@@ -93,8 +139,11 @@ async function runGitHubRender() {
     const entryPath = path.join(__dirname, `${templateName}.jsx`);
     fs.writeFileSync(entryPath, templateCode, 'utf8');
 
+    // [적용됨] 출력 폴더 보장 위치 조정 (코드 상단 통일)
     const outputDir = path.join(__dirname, 'output');
-    if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
+    if (!fs.existsSync(outputDir)) {
+        fs.mkdirSync(outputDir, { recursive: true });
+    }
     const tempVideoName = 'final_shorts.mp4';
 
     const cleanContent = content.replace(/[ \t]+/g, ' ').trim();
@@ -117,10 +166,13 @@ async function runGitHubRender() {
 
     let totalSec = 0;
     pages.forEach(text => { totalSec += (text.length / charsPerSecond) + readingPauseSec; });
+    
     const estimatedSeconds = Math.max(totalSec, 5);
-    const totalFrames = Math.ceil(estimatedSeconds * FPS);
+    // [적용됨] 프레임 하한선 150프레임 방어 로직 추가 (하단 코드 반영)
+    const totalFrames = Math.max(Math.ceil(estimatedSeconds * FPS), 150);
 
     console.log(`🎬 렌더링 세팅: 속도 ${charsPerSecond}자/초 | ${totalFrames}프레임 (${estimatedSeconds}초)`);
+    console.log(`[INFO] 렌더링 시작...`);
 
     try {
         await renderTwickVideo({
@@ -139,31 +191,23 @@ async function runGitHubRender() {
         const expectedPath = path.join(outputDir, tempVideoName);
         const rootPath = path.join(__dirname, tempVideoName);
 
+        let finalPath = '';
         if (fs.existsSync(expectedPath)) {
-            console.log(`📂 최종 파일 렌더링 완료! 크기: ${fs.statSync(expectedPath).size} bytes`);
+            finalPath = expectedPath;
         } else if (fs.existsSync(rootPath)) {
             fs.renameSync(rootPath, expectedPath);
-            console.log(`📂 최종 파일 렌더링 완료! 크기: ${fs.statSync(expectedPath).size} bytes`);
+            finalPath = expectedPath;
         } else {
             throw new Error("어디에도 렌더링된 파일이 없습니다.");
         }
+        
+        // [적용됨] 완료 메시지 포맷 정리
+        console.log(`📂 렌더링 완료! 결과물 위치: ${finalPath}`);
+        console.log(`   └ 파일 크기: ${fs.statSync(finalPath).size} bytes`);
+
     } catch (error) {
         console.error(`❌ 비디오 렌더링 실패:`, error);
         process.exit(1);
     }
 }
 runGitHubRender();
-
-
-
-Run xvfb-run --auto-servernum --server-args="-screen 0 720x1280x24 -ac" node github-render.js
-🚀 GitHub Actions: 렌더링 엔진 가동 시작!
-<anonymous_script>:1
-eyJwYXJhZ3JhcGhMaW1pdCI6MTAsImNoYXJzUGVyU2Vjb25kIjoyMCwiY2FyZEJnQ29sb3IiOiJyZ2JhKDI1NSwgMjU1LCAyNTUsIDAuMDUpIiwid2lkdGgiOjcyMCwiaGVpZ2h0IjoxMjgwLCJkdXJhdGlvbkluRnJhbWVzIjoxNDI4LCJkdXJhdGlvbiI6MTQyOCwiZnBzIjozMH0=
-^
-
-SyntaxError: Unexpected token 'e', "eyJwYXJhZ3"... is not valid JSON
-    at JSON.parse (<anonymous>)
-    at runGitHubRender (/home/runner/work/ipgim-GhostVideo-release/ipgim-GhostVideo-release/github-render.js:70:25)
-
-Node.js v20.20.2
