@@ -1,140 +1,152 @@
 const fs = require('fs');
 const path = require('path');
+const { bundle } = require('@remotion/bundler');
+const { renderMedia, selectComposition } = require('@remotion/renderer');
 
-let puppeteer;
-try { puppeteer = require('puppeteer-core'); } catch(e) { puppeteer = require('puppeteer'); }
-
-const originalLaunch = puppeteer.launch;
-puppeteer.launch = async function(options) {
-    const safeArgs = (options?.args || []).filter(arg => !arg.includes('--headless'));
-    
-    const browser = await originalLaunch.call(puppeteer, {
-        ...options,
-        headless: "new", 
-        defaultViewport: { width: 1080, height: 1920 },
-        args: [
-            ...safeArgs, 
-            '--no-sandbox', 
-            '--disable-setuid-sandbox', 
-            '--disable-dev-shm-usage', 
-            '--window-size=1080,1920', 
-            '--autoplay-policy=no-user-gesture-required',
-            // 🔥 1. 크롬 자체 팝업 차단 강제 활성화
-            '--disable-popup-blocking=false', 
-            '--block-new-web-contents'
-        ]
-    });
-
-    // 🔥 2. 새 탭(팝업 광고) 감지 및 즉시 종료 전역 이벤트
-    browser.on('targetcreated', async (target) => {
-        if (target.type() === 'page') {
-            const newPage = await target.page();
-            const opener = await target.opener();
-            
-            // 부모 창에서 파생된 새 탭(대부분 다운로드 버튼 클릭 시 열리는 악성 팝업) 즉시 닫기
-            if (opener && newPage) {
-                console.log("🚫 [광고 차단] 예상치 못한 팝업이 감지되어 즉시 닫습니다.");
-                try { await newPage.close(); } catch (e) {}
-                return;
-            }
-
-            // 🔥 3. 메인 페이지의 악성 광고 네트워크 리소스 원천 차단 (선택)
-            if (newPage) {
-                try {
-                    await newPage.setRequestInterception(true);
-                    newPage.on('request', (req) => {
-                        const url = req.url().toLowerCase();
-                        // 팝업, 광고 도메인이 포함된 요청은 차단 (필요에 따라 도메인 추가)
-                        if (url.includes('googleads') || url.includes('doubleclick') || url.includes('adsystem') || url.includes('popunder')) {
-                            req.abort();
-                        } else {
-                            req.continue();
-                        }
-                    });
-                } catch (e) {}
-            }
-        }
-    });
-
-    return browser;
-};
+// 1. 출력 폴더 보장
+const outputDir = path.join(__dirname, 'output');
+if (!fs.existsSync(outputDir)) {
+    fs.mkdirSync(outputDir, { recursive: true });
+}
 
 async function runGitHubRender() {
-    console.log("🚀 GitHub Actions: 렌더링 엔진 가동 시작!");
+    console.log("🚀 GitHub Actions: Remotion 렌더링 엔진 가동!");
 
-    const { renderTwickVideo } = await import('@twick/render-server');
+    const decodeBase64 = (str) => {
+        if (!str) return "";
+        return Buffer.from(str, 'base64').toString('utf8');
+    };
 
-    const title = process.env.POST_TITLE || "제목 없음";
-    const content = process.env.POST_CONTENT || "내용이 없습니다.";
-    const templateCode = process.env.TEMPLATE_CODE; 
-    const config = JSON.parse(process.env.POST_CONFIG || "{}");
-    const templateName = process.env.TEMPLATE_NAME || "PremiumStoryShortsTemplate";
+    let title = decodeBase64(process.env.POST_TITLE) || "제목 없음";
+    let content = decodeBase64(process.env.POST_CONTENT) || "내용 없음";
 
-    if (!templateCode) {
-        console.error("❌ 치명적 오류: 템플릿 코드를 전달받지 못했습니다.");
-        process.exit(1);
+    // 💡 방어 전략: 제어문자 정제
+    const safeReplace = (text) => {
+        return text
+            .replace(/[\u0000-\u0008\u000B-\u000C\u000E-\u001F\u007F-\u009F]/g, '')
+            .replace(/"/g, "'")
+            .trim();
+    };
+
+    title = safeReplace(title);
+    content = safeReplace(content);
+    
+    let inputConfig = {};
+    try {
+        const decodedConfig = decodeBase64(process.env.POST_CONFIG);
+        if (decodedConfig) inputConfig = JSON.parse(decodedConfig);
+    } catch (e) {
+        console.warn("⚠️ POST_CONFIG 파싱 실패, 기본 UI 설정을 사용합니다.");
     }
 
-    const entryPath = path.join(__dirname, `${templateName}.jsx`);
-    fs.writeFileSync(entryPath, templateCode, 'utf8');
-
-    const outputDir = path.join(__dirname, 'output');
-    if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
-    const tempVideoName = 'final_shorts.mp4';
-
-    const cleanContent = content.replace(/[ \t]+/g, ' ').trim();
-    const FPS = 30;
+    const rawTemplateCode = decodeBase64(process.env.TEMPLATE_CODE);
+    const templatePath = path.resolve(__dirname, 'Template.jsx');
     
-    // 🔥 [핵심] 프론트엔드 에디터와 100% 동일한 방식으로 영상 길이를 계산합니다.
-    const charsPerSecond = config?.charsPerSecond || 25;
-    const paragraphLimit = config?.paragraphLimit || 4;
-    const readingPauseSec = 1.5;
+    // DB에서 기존 Twick 코드가 넘어올 것을 대비하여 강제로 remotion으로 임포트 변경
+    const fixedTemplateCode = rawTemplateCode ? rawTemplateCode.replace(/@twick\/core/g, 'remotion') : '';
+    if (fixedTemplateCode) {
+        fs.writeFileSync(templatePath, fixedTemplateCode, 'utf8');
+    }
 
-    const lines = cleanContent.split('\n');
-    const pages = [];
-    let tempLines = [];
-    lines.forEach(line => {
-      tempLines.push(line);
-      if (tempLines.length >= paragraphLimit) { pages.push(tempLines.join('\n')); tempLines = []; }
-    });
-    if (tempLines.length > 0) pages.push(tempLines.join('\n'));
-    if (pages.length === 0) pages.push("");
+    // 2. 프레임 계산 로직
+    const typingSpeedMs = 40;
+    const charsPerSecond = 1000 / typingSpeedMs;
+    const contentLen = content.length > 0 ? content.length : 1; 
+    const durationInSeconds = Math.max((contentLen / charsPerSecond) + 2, 5);
+    const dynamicDurationInFrames = Math.max(Math.floor(durationInSeconds * 30), 150);
 
-    let totalSec = 0;
-    pages.forEach(text => { totalSec += (text.length / charsPerSecond) + readingPauseSec; });
-    const estimatedSeconds = Math.max(totalSec, 5);
-    const totalFrames = Math.ceil(estimatedSeconds * FPS);
+    // 3. Remotion Root 설정 파일 동적 생성
+    const rootPath = path.resolve(__dirname, 'Root.jsx');
+    const rootCode = `
+import React from 'react';
+import { Composition } from 'remotion';
+import Template from './Template';
 
-    console.log(`🎬 렌더링 세팅: 속도 ${charsPerSecond}자/초 | ${totalFrames}프레임 (${estimatedSeconds}초)`);
+export const RemotionRoot = () => {
+    return (
+        <Composition
+            id="MainVideo"
+            component={Template}
+            durationInFrames={${dynamicDurationInFrames}}
+            fps={30}
+            width={720}
+            height={1280}
+        />
+    );
+};
+    `;
+    fs.writeFileSync(rootPath, rootCode, 'utf8');
+
+    // 4. [핵심] Remotion Entry 등록 파일 생성 - 글로벌 폰트(Pretendard 강제화)
+    const entryPath = path.resolve(__dirname, 'index.js');
+    const entryCode = `
+import { registerRoot } from 'remotion';
+import { RemotionRoot } from './Root';
+
+// 💡 폰트 강제 주입: 웹 폰트를 로드하고, 모든 요소에 Pretendard 및 Noto 다국어 폰트를 기본 폴백으로 지정
+const fontCSS = \`
+    @import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.8/dist/web/static/pretendard.css");
+    * {
+        font-family: 'Pretendard', 'Noto Sans CJK KR', 'Noto Color Emoji', sans-serif !important;
+    }
+\`;
+const styleSheet = document.createElement("style");
+styleSheet.type = "text/css";
+styleSheet.innerText = fontCSS;
+document.head.appendChild(styleSheet);
+
+registerRoot(RemotionRoot);
+    `;
+    fs.writeFileSync(entryPath, entryCode, 'utf8');
+
+    console.log(`[INFO] 번들링 시작 (Frames: ${dynamicDurationInFrames})...`);
 
     try {
-        await renderTwickVideo({
-            input: {
-                entry: entryPath, 
-                properties: {
-                    postTitle: title, postContent: cleanContent, views: "15,820", postUp: 940,
-                    cardBgColor: config?.cardBgColor || "#1a1a24",
-                    paragraphLimit: paragraphLimit, charsPerSecond: charsPerSecond, // 🔥 속도값 주입
-                    width: 1080, height: 1920, durationInFrames: totalFrames, fps: FPS
-                },
-                durationInFrames: totalFrames, duration: estimatedSeconds, frameCount: totalFrames, fps: FPS, width: 1080, height: 1920
+        // 5. Webpack 번들링 수행
+        const bundleLocation = await bundle({
+            entryPoint: entryPath,
+            webpackOverride: (config) => config,
+        });
+
+        // 6. 프롭스 세팅 및 컴포지션 선택
+        const inputProps = {
+            postTitle: title,
+            postContent: content,
+            views: "1.5만",
+            postUp: 842,
+            cardBgColor: inputConfig.cardBgColor || "#1a1a24",
+            ...inputConfig
+        };
+
+        const composition = await selectComposition({
+            serveUrl: bundleLocation,
+            id: 'MainVideo',
+            inputProps,
+        });
+
+        console.log(`[INFO] 렌더링 시작...`);
+
+        // 7. 비디오 추출
+        const finalOutput = path.join(outputDir, 'final_shorts.mp4');
+        await renderMedia({
+            composition,
+            serveUrl: bundleLocation,
+            codec: 'h264',
+            outputLocation: finalOutput,
+            inputProps,
+            chromiumOptions: {
+                gl: 'angle', // 리눅스 환경 필수 옵션
+                // 💡 폰트 렌더링을 매끄럽게 만들기 위해 캐시 및 샌드박스 옵션 추가
+                args: ['--no-sandbox', '--disable-setuid-sandbox', '--font-render-hinting=none']
             }
-        }, { outFile: tempVideoName, quality: "high" });
+        });
 
-        const expectedPath = path.join(outputDir, tempVideoName);
-        const rootPath = path.join(__dirname, tempVideoName);
+        console.log(`📂 렌더링 완료! 결과물 위치: ${finalOutput}`);
 
-        if (fs.existsSync(expectedPath)) {
-            console.log(`📂 최종 파일 렌더링 완료! 크기: ${fs.statSync(expectedPath).size} bytes`);
-        } else if (fs.existsSync(rootPath)) {
-            fs.renameSync(rootPath, expectedPath);
-            console.log(`📂 최종 파일 렌더링 완료! 크기: ${fs.statSync(expectedPath).size} bytes`);
-        } else {
-            throw new Error("어디에도 렌더링된 파일이 없습니다.");
-        }
     } catch (error) {
-        console.error(`❌ 비디오 렌더링 실패:`, error);
+        console.error("❌ 비디오 렌더링 실패:", error);
         process.exit(1);
     }
 }
+
 runGitHubRender();
